@@ -1,4 +1,4 @@
-"""Create the initial user, session, message, and memory schema."""
+"""Create the initial FluxMem schema."""
 
 import sqlalchemy as sa
 from alembic import op
@@ -61,13 +61,16 @@ def upgrade() -> None:
         ),
         sa.Column("valid_from", sa.DateTime(timezone=True)),
         sa.Column("valid_to", sa.DateTime(timezone=True)),
-        sa.Column("session_scope", sa.Uuid()),
+        sa.Column("session_applicability", sa.Uuid()),
         sa.CheckConstraint(
             "valid_from IS NULL OR valid_to IS NULL OR valid_to >= valid_from",
             name="memories_valid_interval",
         ),
         sa.ForeignKeyConstraint(["message_id"], ["messages.message_id"]),
-        sa.ForeignKeyConstraint(["session_scope"], ["sessions.session_id"]),
+        sa.ForeignKeyConstraint(
+            ["session_applicability"],
+            ["sessions.session_id"],
+        ),
         sa.PrimaryKeyConstraint("memory_id"),
     )
     op.create_index(
@@ -76,13 +79,80 @@ def upgrade() -> None:
         ["message_id", "memory_id"],
     )
     op.create_index(
-        "memories_by_session_scope",
+        "memories_by_session_applicability",
         "memories",
-        ["session_scope", "memory_id"],
+        ["session_applicability", "memory_id"],
+    )
+    op.create_table(
+        "memory_lifecycle",
+        sa.Column("memory_id", sa.Uuid(), nullable=False),
+        sa.Column("tier", sa.Text(), nullable=False),
+        sa.Column("status", sa.Text(), nullable=False),
+        sa.Column("importance", sa.Float(), nullable=False),
+        sa.Column("decay_class", sa.Text(), nullable=False),
+        sa.Column("retention_snapshot", sa.Float(), nullable=False),
+        sa.Column("retention_anchor", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "reinforcement_count",
+            sa.Integer(),
+            server_default="0",
+            nullable=False,
+        ),
+        sa.Column("use_count", sa.Integer(), server_default="0", nullable=False),
+        sa.Column("last_used_at", sa.DateTime(timezone=True)),
+        sa.Column("next_reinforcement_at", sa.DateTime(timezone=True)),
+        sa.Column("decision_source", sa.Text(), nullable=False),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "tier IN ('working', 'short_term', 'long_term')",
+            name="memory_lifecycle_tier",
+        ),
+        sa.CheckConstraint(
+            "status IN ('active', 'deleted')",
+            name="memory_lifecycle_status",
+        ),
+        sa.CheckConstraint(
+            "importance >= 0.1 AND importance <= 1",
+            name="memory_lifecycle_importance",
+        ),
+        sa.CheckConstraint(
+            "decay_class IN ('fast', 'standard', 'slow')",
+            name="memory_lifecycle_decay_class",
+        ),
+        sa.CheckConstraint(
+            "retention_snapshot >= 0.1 AND retention_snapshot <= 1",
+            name="memory_lifecycle_retention",
+        ),
+        sa.CheckConstraint(
+            "reinforcement_count >= 0 AND use_count >= 0",
+            name="memory_lifecycle_counters",
+        ),
+        sa.CheckConstraint(
+            "decision_source IN "
+            "('llm_primary', 'llm_retry', 'rules_fallback', 'manual')",
+            name="memory_lifecycle_decision_source",
+        ),
+        sa.ForeignKeyConstraint(
+            ["memory_id"],
+            ["memories.memory_id"],
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("memory_id"),
+    )
+    op.create_index(
+        "memory_lifecycle_by_status",
+        "memory_lifecycle",
+        ["status", "memory_id"],
     )
 
 
 def downgrade() -> None:
+    op.drop_table("memory_lifecycle")
     op.drop_table("memories")
     op.drop_table("messages")
     op.drop_table("sessions")

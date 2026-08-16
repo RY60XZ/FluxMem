@@ -14,6 +14,7 @@ from fluxmem.application.read.retrieval import (
     RetrievalForAnswering,
 )
 from fluxmem.application.read.session_history import GetSessionHistory
+from fluxmem.application.ports.lifecycle import LifecycleEvaluator
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.application.write.store_message import StoreMessage
 
@@ -33,7 +34,12 @@ class FluxMemServices:
         self.engine.dispose()
 
 
-def bootstrap(*, database_url: str, **engine_options: object) -> FluxMemServices:
+def bootstrap(
+    *,
+    database_url: str,
+    lifecycle_evaluator: LifecycleEvaluator | None = None,
+    **engine_options: object,
+) -> FluxMemServices:
     """Create FluxMem's PostgreSQL adapters and application use cases."""
 
     engine = create_database_engine(database_url, **engine_options)
@@ -54,5 +60,8 @@ def bootstrap(*, database_url: str, **engine_options: object) -> FluxMemServices
             unit_of_work_factory=unit_of_work_factory
         ),
         store_message=StoreMessage(unit_of_work_factory=unit_of_work_factory),
-        store_memory=StoreMemory(unit_of_work_factory=unit_of_work_factory),
+        store_memory=StoreMemory(
+            unit_of_work_factory=unit_of_work_factory,
+            lifecycle_evaluator=lifecycle_evaluator,
+        ),
     )

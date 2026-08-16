@@ -4,13 +4,21 @@ import re
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, literal, or_, select
 from sqlalchemy.orm import Session
 
+from fluxmem.adapters.postgres.models.lifecycle import MemoryLifecycleRow
 from fluxmem.adapters.postgres.models.message import MessageRow
 from fluxmem.adapters.postgres.models.memory import MemoryRow
 from fluxmem.adapters.postgres.models.session import SessionRow
 from fluxmem.domain.info_pack import MessagePack, RetrievedMemory
+from fluxmem.domain.lifecycle import (
+    RETENTION_FLOOR,
+    RELEVANCE_FLOOR,
+    STABILITY_DAYS,
+    DecayClass,
+    Status,
+)
 from fluxmem.domain.memory import Memory
 
 
@@ -22,7 +30,7 @@ def _to_domain(row: MemoryRow) -> Memory:
         created_at=row.created_at,
         valid_from=row.valid_from,
         valid_to=row.valid_to,
-        session_scope=row.session_scope,
+        session_applicability=row.session_applicability,
     )
 
 
@@ -41,7 +49,7 @@ class SqlAlchemyMemoryRepository:
                 created_at=memory.created_at,
                 valid_from=memory.valid_from,
                 valid_to=memory.valid_to,
-                session_scope=memory.session_scope,
+                session_applicability=memory.session_applicability,
             )
         )
 
@@ -84,16 +92,49 @@ class SqlAlchemyMemoryRepository:
             "english",
             " OR ".join(lexical_terms),
         )
-        score = func.ts_rank_cd(search_document, search_query).label("score")
+        base_score = func.ts_rank_cd(search_document, search_query)
+        elapsed_days = func.greatest(
+            0.0,
+            func.extract(
+                "epoch",
+                literal(as_of) - MemoryLifecycleRow.retention_anchor,
+            )
+            / 86_400.0,
+        )
+        stability_days = case(
+            (
+                MemoryLifecycleRow.decay_class == DecayClass.FAST.value,
+                STABILITY_DAYS[DecayClass.FAST],
+            ),
+            (
+                MemoryLifecycleRow.decay_class == DecayClass.STANDARD.value,
+                STABILITY_DAYS[DecayClass.STANDARD],
+            ),
+            else_=STABILITY_DAYS[DecayClass.SLOW],
+        )
+        retention = (
+            RETENTION_FLOOR
+            + (MemoryLifecycleRow.retention_snapshot - RETENTION_FLOOR)
+            * func.exp(-elapsed_days / stability_days)
+        ).label("retention")
+        score = (
+            base_score
+            * (RELEVANCE_FLOOR + (1.0 - RELEVANCE_FLOOR) * retention)
+        ).label("score")
         statement = (
-            select(MemoryRow, score)
+            select(MemoryRow, score, retention)
             .join(MessageRow, MessageRow.message_id == MemoryRow.message_id)
             .join(SessionRow, SessionRow.session_id == MessageRow.session_id)
+            .join(
+                MemoryLifecycleRow,
+                MemoryLifecycleRow.memory_id == MemoryRow.memory_id,
+            )
             .where(
                 SessionRow.user_id == message_pack.user_id,
+                MemoryLifecycleRow.status == Status.ACTIVE.value,
                 or_(
-                    MemoryRow.session_scope.is_(None),
-                    MemoryRow.session_scope == message_pack.session_id,
+                    MemoryRow.session_applicability.is_(None),
+                    MemoryRow.session_applicability == message_pack.session_id,
                 ),
                 or_(MemoryRow.valid_from.is_(None), MemoryRow.valid_from <= as_of),
                 or_(MemoryRow.valid_to.is_(None), MemoryRow.valid_to >= as_of),
@@ -108,7 +149,8 @@ class SqlAlchemyMemoryRepository:
                 memory=_to_domain(row),
                 rank=rank,
                 score=float(row_score),
-                retrieval_reasons=("lexical",),
+                retention=float(row_retention),
+                retrieval_reasons=("lexical", "lifecycle"),
             )
-            for rank, (row, row_score) in enumerate(rows, start=1)
+            for rank, (row, row_score, row_retention) in enumerate(rows, start=1)
         )

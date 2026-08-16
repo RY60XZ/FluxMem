@@ -15,6 +15,7 @@ class RetrievedMemory:
     memory: Memory
     rank: int
     score: float
+    retention: float
     retrieval_reasons: tuple[str, ...]
 
 

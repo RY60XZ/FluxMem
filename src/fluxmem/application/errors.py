@@ -9,8 +9,8 @@ class SessionNotFoundError(LookupError):
     """The selected session does not exist in the requested user scope."""
 
 
-class InvalidMemoryScopeError(ValueError):
-    """A memory was assigned a session scope outside its evidence session."""
+class InvalidSessionApplicabilityError(ValueError):
+    """A session-limited memory references a session other than its evidence."""
 
 
 class InvalidRetrievalContextError(ValueError):

@@ -44,7 +44,7 @@ class MemoryRow(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    session_scope: Mapped[UUID | None] = mapped_column(
+    session_applicability: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("sessions.session_id"),
         nullable=True,
@@ -52,3 +52,8 @@ class MemoryRow(Base):
 
 
 Index("memories_by_message", MemoryRow.message_id, MemoryRow.memory_id)
+Index(
+    "memories_by_session_applicability",
+    MemoryRow.session_applicability,
+    MemoryRow.memory_id,
+)
