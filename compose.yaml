@@ -1,0 +1,23 @@
+name: fluxmem
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${FLUXMEM_POSTGRES_DB:-fluxmem}
+      POSTGRES_USER: ${FLUXMEM_POSTGRES_USER:-fluxmem}
+      POSTGRES_PASSWORD: ${FLUXMEM_POSTGRES_PASSWORD:-fluxmem_dev}
+    ports:
+      - "${FLUXMEM_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - fluxmem_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${FLUXMEM_POSTGRES_USER:-fluxmem} -d ${FLUXMEM_POSTGRES_DB:-fluxmem}
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  fluxmem_postgres_data:
