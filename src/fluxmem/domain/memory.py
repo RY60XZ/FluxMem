@@ -12,4 +12,4 @@ class Memory:
     created_at: datetime
     valid_from: datetime | None = None
     valid_to: datetime | None = None
-    session_scope : UUID | None = None
+    session_scope: UUID | None = None

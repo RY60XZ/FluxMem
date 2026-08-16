@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from fluxmem.domain.info_pack import MessagePack, RetrievedMemory
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
 
 class MessageRepository(Protocol):
+    def add(self, *, message: Message) -> None: ...
+
     def get(self, *, message_id: UUID, user_id: UUID) -> Message | None: ...
+
+    def list_for_session(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID,
+        limit: int | None = None,
+    ) -> tuple[Message, ...]: ...
 
 
 class SessionRepository(Protocol):
@@ -17,3 +29,13 @@ class SessionRepository(Protocol):
 
 class MemoryRepository(Protocol):
     def add(self, *, memory: Memory) -> None: ...
+
+    def get(self, *, memory_id: UUID, user_id: UUID) -> Memory | None: ...
+
+    def search(
+        self,
+        *,
+        message_pack: MessagePack,
+        as_of: datetime,
+        limit: int,
+    ) -> tuple[RetrievedMemory, ...]: ...

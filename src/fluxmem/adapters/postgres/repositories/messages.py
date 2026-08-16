@@ -10,17 +10,47 @@ from fluxmem.adapters.postgres.models.session import SessionRow
 from fluxmem.domain.message import Message
 
 
+def _to_domain(row: MessageRow) -> Message:
+    return Message(
+        message_id=row.message_id,
+        session_id=row.session_id,
+        role=row.role,
+        agent_id=row.agent_id,
+        content=row.content,
+        created_at=row.created_at,
+    )
+
+
 def session_history(
     *,
     user_id: UUID,
     session_id: UUID,
+    limit: int | None = None,
 ) -> Select[tuple[MessageRow]]:
-    """Select an owned session's history in chronological order."""
+    """Select all or the latest N owned messages in chronological order."""
 
-    return (
+    owned_messages = (
         select(MessageRow)
         .join(SessionRow, SessionRow.session_id == MessageRow.session_id)
         .where(SessionRow.user_id == user_id, MessageRow.session_id == session_id)
+    )
+    if limit is None:
+        return owned_messages.order_by(MessageRow.created_at, MessageRow.message_id)
+
+    recent_message_ids = (
+        select(MessageRow.message_id)
+        .join(SessionRow, SessionRow.session_id == MessageRow.session_id)
+        .where(SessionRow.user_id == user_id, MessageRow.session_id == session_id)
+        .order_by(MessageRow.created_at.desc(), MessageRow.message_id.desc())
+        .limit(limit)
+        .subquery()
+    )
+    return (
+        select(MessageRow)
+        .join(
+            recent_message_ids,
+            recent_message_ids.c.message_id == MessageRow.message_id,
+        )
         .order_by(MessageRow.created_at, MessageRow.message_id)
     )
 
@@ -43,11 +73,32 @@ class SqlAlchemyMessageRepository:
         row = self._session.scalar(statement)
         if row is None:
             return None
-        return Message(
-            message_id=row.message_id,
-            session_id=row.session_id,
-            role=row.role,
-            agent_id=row.agent_id,
-            content=row.content,
-            created_at=row.created_at,
+        return _to_domain(row)
+
+    def add(self, *, message: Message) -> None:
+        self._session.add(
+            MessageRow(
+                message_id=message.message_id,
+                session_id=message.session_id,
+                role=message.role,
+                agent_id=message.agent_id,
+                content=message.content,
+                created_at=message.created_at,
+            )
         )
+
+    def list_for_session(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID,
+        limit: int | None = None,
+    ) -> tuple[Message, ...]:
+        rows = self._session.scalars(
+            session_history(
+                user_id=user_id,
+                session_id=session_id,
+                limit=limit,
+            )
+        )
+        return tuple(_to_domain(row) for row in rows)

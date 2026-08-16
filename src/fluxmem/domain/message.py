@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class User:
     user_id: UUID
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Session:
     session_id: UUID
     user_id: UUID
