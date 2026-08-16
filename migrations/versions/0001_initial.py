@@ -100,7 +100,6 @@ def upgrade() -> None:
         ),
         sa.Column("use_count", sa.Integer(), server_default="0", nullable=False),
         sa.Column("last_used_at", sa.DateTime(timezone=True)),
-        sa.Column("next_reinforcement_at", sa.DateTime(timezone=True)),
         sa.Column("decision_source", sa.Text(), nullable=False),
         sa.Column(
             "updated_at",
@@ -149,9 +148,54 @@ def upgrade() -> None:
         "memory_lifecycle",
         ["status", "memory_id"],
     )
+    op.create_table(
+        "memory_usage",
+        sa.Column("usage_id", sa.Uuid(), nullable=False),
+        sa.Column("memory_id", sa.Uuid(), nullable=False),
+        sa.Column("query_id", sa.Uuid(), nullable=False),
+        sa.Column("usage_type", sa.Text(), nullable=False),
+        sa.Column("rank", sa.Integer()),
+        sa.Column("contribution", sa.Float()),
+        sa.Column(
+            "used_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "usage_type IN ('context_included', 'model_attributed')",
+            name="memory_usage_type",
+        ),
+        sa.CheckConstraint(
+            "rank IS NULL OR rank >= 1",
+            name="memory_usage_rank",
+        ),
+        sa.CheckConstraint(
+            "contribution IS NULL OR "
+            "(contribution >= 0 AND contribution <= 1)",
+            name="memory_usage_contribution",
+        ),
+        sa.ForeignKeyConstraint(
+            ["memory_id"],
+            ["memories.memory_id"],
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("usage_id"),
+        sa.UniqueConstraint(
+            "memory_id",
+            "query_id",
+            name="memory_usage_memory_query_key",
+        ),
+    )
+    op.create_index(
+        "memory_usage_by_memory_time",
+        "memory_usage",
+        ["memory_id", "used_at"],
+    )
 
 
 def downgrade() -> None:
+    op.drop_table("memory_usage")
     op.drop_table("memory_lifecycle")
     op.drop_table("memories")
     op.drop_table("messages")

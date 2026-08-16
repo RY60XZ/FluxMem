@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from fluxmem.domain.info_pack import MessagePack, RetrievedMemory
+from fluxmem.domain.info_pack import MemoryUsage, MessagePack, RetrievedMemory
 from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
@@ -50,4 +50,15 @@ class LifecycleRepository(Protocol):
         *,
         memory_id: UUID,
         user_id: UUID,
+    ) -> MemoryLifecycle | None: ...
+
+    def reinforce(
+        self,
+        *,
+        memory_id: UUID,
+        query_id: UUID,
+        user_id: UUID,
+        session_id: UUID,
+        usage: MemoryUsage,
+        used_at: datetime,
     ) -> MemoryLifecycle | None: ...

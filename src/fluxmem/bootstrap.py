@@ -15,6 +15,7 @@ from fluxmem.application.read.retrieval import (
 )
 from fluxmem.application.read.session_history import GetSessionHistory
 from fluxmem.application.ports.lifecycle import LifecycleEvaluator
+from fluxmem.application.write.reinforcement import ReinforceMemory
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.application.write.store_message import StoreMessage
 
@@ -29,6 +30,7 @@ class FluxMemServices:
     retrieval_for_adding: RetrievalForAdding
     store_message: StoreMessage
     store_memory: StoreMemory
+    reinforce_memory: ReinforceMemory
 
     def close(self) -> None:
         self.engine.dispose()
@@ -63,5 +65,8 @@ def bootstrap(
         store_memory=StoreMemory(
             unit_of_work_factory=unit_of_work_factory,
             lifecycle_evaluator=lifecycle_evaluator,
+        ),
+        reinforce_memory=ReinforceMemory(
+            unit_of_work_factory=unit_of_work_factory,
         ),
     )

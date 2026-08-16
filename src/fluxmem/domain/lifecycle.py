@@ -80,7 +80,6 @@ class MemoryLifecycle:
     reinforcement_count: int
     use_count: int
     last_used_at: datetime | None
-    next_reinforcement_at: datetime | None
     decision_source: DecisionSource
     updated_at: datetime
 
