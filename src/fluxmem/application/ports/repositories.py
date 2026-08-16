@@ -5,6 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from fluxmem.domain.info_pack import MessagePack, RetrievedMemory
+from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
@@ -39,3 +40,14 @@ class MemoryRepository(Protocol):
         as_of: datetime,
         limit: int,
     ) -> tuple[RetrievedMemory, ...]: ...
+
+
+class LifecycleRepository(Protocol):
+    def add(self, *, lifecycle: MemoryLifecycle) -> None: ...
+
+    def get(
+        self,
+        *,
+        memory_id: UUID,
+        user_id: UUID,
+    ) -> MemoryLifecycle | None: ...

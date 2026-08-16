@@ -4,6 +4,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from fluxmem.application.ports.repositories import (
+    LifecycleRepository,
     MemoryRepository,
     MessageRepository,
     SessionRepository,
@@ -11,6 +12,7 @@ from fluxmem.application.ports.repositories import (
 
 
 class UnitOfWork(Protocol):
+    lifecycles: LifecycleRepository
     messages: MessageRepository
     sessions: SessionRepository
     memories: MemoryRepository
@@ -25,5 +27,7 @@ class UnitOfWork(Protocol):
     ) -> None: ...
 
     def commit(self) -> None: ...
+
+    def flush(self) -> None: ...
 
     def rollback(self) -> None: ...
