@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+import unittest
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from uuid import UUID, uuid4
+
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from fluxmem.adapters.postgres.models import (
+    Base,
+    MemoryLifecycleRow,
+    MemoryRow,
+    MemoryUsageRow,
+    MessageRow,
+    SessionRow,
+    UserRow,
+)
+from fluxmem.adapters.postgres.unit_of_work import SqlAlchemyUnitOfWork
+from fluxmem.application.write.reinforcement import ReinforceMemory
+from fluxmem.domain.info_pack import FeedbackPack, MemoryUsage, UsageType
+from fluxmem.domain.lifecycle import DecayClass, Tier
+
+
+@dataclass
+class MutableClock:
+    current: datetime
+
+    def now(self) -> datetime:
+        return self.current
+
+
+class ReinforcementIntegrationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.engine = create_engine("sqlite+pysqlite:///:memory:")
+        Base.metadata.create_all(self.engine)
+        self.session_factory = sessionmaker(
+            bind=self.engine,
+            expire_on_commit=False,
+        )
+        self.user_id = uuid4()
+        self.session_id = uuid4()
+        self.memory_id = uuid4()
+        self.started_at = datetime(2026, 1, 1, 12)
+        self.clock = MutableClock(self.started_at)
+
+        with self.session_factory() as session:
+            message_id = uuid4()
+            session.add_all(
+                [
+                    UserRow(user_id=self.user_id),
+                    SessionRow(
+                        session_id=self.session_id,
+                        user_id=self.user_id,
+                    ),
+                    MessageRow(
+                        message_id=message_id,
+                        session_id=self.session_id,
+                        role="user",
+                        agent_id=None,
+                        content="Remember this",
+                        created_at=self.started_at,
+                    ),
+                    MemoryRow(
+                        memory_id=self.memory_id,
+                        message_id=message_id,
+                        content="Remember this",
+                        created_at=self.started_at,
+                        valid_from=None,
+                        valid_to=None,
+                        session_applicability=None,
+                    ),
+                    MemoryLifecycleRow(
+                        memory_id=self.memory_id,
+                        tier=Tier.WORKING.value,
+                        status="active",
+                        importance=0.5,
+                        decay_class=DecayClass.FAST.value,
+                        retention_snapshot=0.5,
+                        retention_anchor=self.started_at,
+                        reinforcement_count=0,
+                        use_count=0,
+                        last_used_at=None,
+                        decision_source="rules_fallback",
+                        updated_at=self.started_at,
+                    ),
+                ]
+            )
+            session.commit()
+
+        def unit_of_work_factory() -> SqlAlchemyUnitOfWork:
+            return SqlAlchemyUnitOfWork(self.session_factory)
+
+        self.reinforce = ReinforceMemory(
+            unit_of_work_factory=unit_of_work_factory,
+            clock=self.clock,
+        )
+
+    def tearDown(self) -> None:
+        self.engine.dispose()
+
+    def test_strongest_signal_is_recorded_and_query_retry_is_idempotent(self) -> None:
+        query_id = uuid4()
+        result = self._execute(
+            query_id,
+            MemoryUsage(
+                memory_id=self.memory_id,
+                usage_type=UsageType.CONTEXT_INCLUDED,
+                rank=2,
+            ),
+            MemoryUsage(
+                memory_id=self.memory_id,
+                usage_type=UsageType.MODEL_ATTRIBUTED,
+                rank=2,
+                contribution=0.8,
+            ),
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0].importance, 0.6)
+        self.assertEqual(result[0].use_count, 1)
+        self.assertEqual(result[0].reinforcement_count, 1)
+
+        self.clock.current += timedelta(days=1)
+        retry = self._execute(
+            query_id,
+            MemoryUsage(
+                memory_id=self.memory_id,
+                usage_type=UsageType.MODEL_ATTRIBUTED,
+                rank=2,
+                contribution=0.8,
+            ),
+        )
+
+        self.assertEqual(retry[0].use_count, 1)
+        self.assertEqual(retry[0].reinforcement_count, 1)
+        self.assertAlmostEqual(retry[0].importance, 0.6)
+        with self.session_factory() as session:
+            rows = session.scalars(select(MemoryUsageRow)).all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].usage_type, UsageType.MODEL_ATTRIBUTED.value)
+
+    def test_every_new_query_reinforces_but_promotion_needs_usage_days(self) -> None:
+        first = self._attributed_use()
+        second = self._attributed_use()
+
+        self.assertAlmostEqual(first.importance, 0.6)
+        self.assertAlmostEqual(second.importance, 0.68)
+        self.assertEqual(second.reinforcement_count, 2)
+        self.assertEqual(second.tier, Tier.WORKING)
+
+        self.clock.current += timedelta(days=1)
+        third = self._attributed_use()
+        fourth = self._attributed_use()
+
+        self.assertEqual(third.tier, Tier.SHORT_TERM)
+        self.assertEqual(third.decay_class, DecayClass.STANDARD)
+        self.assertAlmostEqual(fourth.importance, 0.7952)
+        self.assertEqual(fourth.tier, Tier.SHORT_TERM)
+
+        self.clock.current += timedelta(days=1)
+        fifth = self._attributed_use()
+
+        self.assertAlmostEqual(fifth.importance, 0.83616)
+        self.assertEqual(fifth.reinforcement_count, 5)
+        self.assertEqual(fifth.use_count, 5)
+        self.assertEqual(fifth.tier, Tier.LONG_TERM)
+        self.assertEqual(fifth.decay_class, DecayClass.SLOW)
+
+    def _attributed_use(self):
+        return self._execute(
+            uuid4(),
+            MemoryUsage(
+                memory_id=self.memory_id,
+                usage_type=UsageType.MODEL_ATTRIBUTED,
+            ),
+        )[0]
+
+    def _execute(
+        self,
+        query_id: UUID,
+        *usages: MemoryUsage,
+    ):
+        return self.reinforce.execute(
+            feedback_pack=FeedbackPack(
+                query_id=query_id,
+                user_id=self.user_id,
+                session_id=self.session_id,
+                used_memories=tuple(usages),
+            )
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

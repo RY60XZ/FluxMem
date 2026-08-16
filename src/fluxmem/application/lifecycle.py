@@ -77,7 +77,6 @@ class LifecyclePolicyExecutor:
             reinforcement_count=0,
             use_count=0,
             last_used_at=None,
-            next_reinforcement_at=None,
             decision_source=decision.decision_source,
             updated_at=initialized_at,
         )
