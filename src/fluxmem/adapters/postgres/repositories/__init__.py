@@ -3,7 +3,7 @@ from fluxmem.adapters.postgres.repositories.memories import (
 )
 from fluxmem.adapters.postgres.repositories.messages import (
     SqlAlchemyMessageRepository,
-    history_statement,
+    session_history,
 )
 from fluxmem.adapters.postgres.repositories.sessions import (
     SqlAlchemySessionRepository,
@@ -13,5 +13,5 @@ __all__ = (
     "SqlAlchemyMemoryRepository",
     "SqlAlchemyMessageRepository",
     "SqlAlchemySessionRepository",
-    "history_statement",
+    "session_history",
 )
