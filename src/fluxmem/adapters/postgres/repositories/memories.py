@@ -83,7 +83,7 @@ class SqlAlchemyMemoryRepository:
                 for message in message_pack.messages
                 for term in re.findall(r"\w+", message.content.casefold())
             )
-        )[:64]
+        )[:256]
         if not lexical_terms:
             return ()
 

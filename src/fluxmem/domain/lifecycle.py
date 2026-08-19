@@ -106,9 +106,3 @@ class MemoryLifecycle:
         return RETENTION_FLOOR + (
             self.retention_snapshot - RETENTION_FLOOR
         ) * exp(-elapsed_days / stability)
-
-    def adjust_relevance(self, base_score: float, as_of: datetime) -> float:
-        retention = self.retention_at(as_of)
-        return base_score * (
-            RELEVANCE_FLOOR + (1.0 - RELEVANCE_FLOOR) * retention
-        )
