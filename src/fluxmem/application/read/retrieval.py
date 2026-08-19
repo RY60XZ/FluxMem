@@ -50,11 +50,9 @@ class RetrievalForAnswering:
         *,
         unit_of_work_factory: Callable[[], UnitOfWork],
         clock: Clock | None = None,
-        query_id_factory: Callable[[], UUID] = uuid4,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._clock = clock or SystemClock()
-        self._query_id_factory = query_id_factory
 
     def execute(
         self,
@@ -87,7 +85,6 @@ class RetrievalForAnswering:
             )
 
         return MemoryPack(
-            query_id=self._query_id_factory(),
             user_id=session_history.user_id,
             session_id=session_history.session_id,
             memories=memories,
@@ -102,11 +99,9 @@ class RetrievalForAdding:
         *,
         unit_of_work_factory: Callable[[], UnitOfWork],
         clock: Clock | None = None,
-        query_id_factory: Callable[[], UUID] = uuid4,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._clock = clock or SystemClock()
-        self._query_id_factory = query_id_factory
 
     def execute(
         self,
@@ -141,7 +136,6 @@ class RetrievalForAdding:
             )
 
         return MemoryPack(
-            query_id=self._query_id_factory(),
             user_id=session_history.user_id,
             session_id=session_history.session_id,
             memories=memories,

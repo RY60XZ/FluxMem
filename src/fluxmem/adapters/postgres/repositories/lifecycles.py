@@ -98,7 +98,6 @@ class SqlAlchemyLifecycleRepository:
         self,
         *,
         memory_id: UUID,
-        query_id: UUID,
         user_id: UUID,
         session_id: UUID,
         usage: MemoryUsage,
@@ -129,8 +128,7 @@ class SqlAlchemyLifecycleRepository:
         lifecycle = _to_domain(row)
         recorded_usage = self._session.scalar(
             select(MemoryUsageRow).where(
-                MemoryUsageRow.memory_id == memory_id,
-                MemoryUsageRow.query_id == query_id,
+                MemoryUsageRow.memory_id == memory_id
             )
         )
         if recorded_usage is not None:
@@ -140,7 +138,6 @@ class SqlAlchemyLifecycleRepository:
         self._session.add(
             MemoryUsageRow(
                 memory_id=memory_id,
-                query_id=query_id,
                 usage_type=usage.usage_type.value,
                 rank=usage.rank,
                 contribution=usage.contribution,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -12,7 +12,6 @@ from fluxmem.adapters.postgres.models import (
     Base,
     MemoryLifecycleRow,
     MemoryRow,
-    MemoryUsageRow,
     MessageRow,
     SessionRow,
     UserRow,
@@ -100,47 +99,6 @@ class ReinforcementIntegrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.engine.dispose()
 
-    def test_strongest_signal_is_recorded_and_query_retry_is_idempotent(self) -> None:
-        query_id = uuid4()
-        result = self._execute(
-            query_id,
-            MemoryUsage(
-                memory_id=self.memory_id,
-                usage_type=UsageType.CONTEXT_INCLUDED,
-                rank=2,
-            ),
-            MemoryUsage(
-                memory_id=self.memory_id,
-                usage_type=UsageType.MODEL_ATTRIBUTED,
-                rank=2,
-                contribution=0.8,
-            ),
-        )
-
-        self.assertEqual(len(result), 1)
-        self.assertAlmostEqual(result[0].importance, 0.6)
-        self.assertEqual(result[0].use_count, 1)
-        self.assertEqual(result[0].reinforcement_count, 1)
-
-        self.clock.current += timedelta(days=1)
-        retry = self._execute(
-            query_id,
-            MemoryUsage(
-                memory_id=self.memory_id,
-                usage_type=UsageType.MODEL_ATTRIBUTED,
-                rank=2,
-                contribution=0.8,
-            ),
-        )
-
-        self.assertEqual(retry[0].use_count, 1)
-        self.assertEqual(retry[0].reinforcement_count, 1)
-        self.assertAlmostEqual(retry[0].importance, 0.6)
-        with self.session_factory() as session:
-            rows = session.scalars(select(MemoryUsageRow)).all()
-            self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0].usage_type, UsageType.MODEL_ATTRIBUTED.value)
-
     def test_every_new_query_reinforces_but_promotion_needs_usage_days(self) -> None:
         first = self._attributed_use()
         second = self._attributed_use()
@@ -179,12 +137,10 @@ class ReinforcementIntegrationTests(unittest.TestCase):
 
     def _execute(
         self,
-        query_id: UUID,
         *usages: MemoryUsage,
     ):
         return self.reinforce.execute(
             feedback_pack=FeedbackPack(
-                query_id=query_id,
                 user_id=self.user_id,
                 session_id=self.session_id,
                 used_memories=tuple(usages),

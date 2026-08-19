@@ -43,7 +43,6 @@ class ReinforceMemory:
             for usage in usages:
                 lifecycle = unit_of_work.lifecycles.reinforce(
                     memory_id=usage.memory_id,
-                    query_id=feedback_pack.query_id,
                     user_id=feedback_pack.user_id,
                     session_id=feedback_pack.session_id,
                     usage=usage,

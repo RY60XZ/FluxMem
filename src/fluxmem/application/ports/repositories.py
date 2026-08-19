@@ -56,7 +56,6 @@ class LifecycleRepository(Protocol):
         self,
         *,
         memory_id: UUID,
-        query_id: UUID,
         user_id: UUID,
         session_id: UUID,
         usage: MemoryUsage,

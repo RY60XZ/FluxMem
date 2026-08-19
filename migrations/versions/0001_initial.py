@@ -152,7 +152,6 @@ def upgrade() -> None:
         "memory_usage",
         sa.Column("usage_id", sa.Uuid(), nullable=False),
         sa.Column("memory_id", sa.Uuid(), nullable=False),
-        sa.Column("query_id", sa.Uuid(), nullable=False),
         sa.Column("usage_type", sa.Text(), nullable=False),
         sa.Column("rank", sa.Integer()),
         sa.Column("contribution", sa.Float()),
@@ -181,11 +180,6 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("usage_id"),
-        sa.UniqueConstraint(
-            "memory_id",
-            "query_id",
-            name="memory_usage_memory_query_key",
-        ),
     )
     op.create_index(
         "memory_usage_by_memory_time",
