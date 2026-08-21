@@ -13,10 +13,19 @@ from fluxmem.application.lifecycle import (
     RuleLifecycleEvaluator,
 )
 from fluxmem.application.ports.clock import Clock, SystemClock
+from fluxmem.application.ports.embeddings import (
+    EmbeddingProvider,
+    EmbeddingProviderError,
+)
 from fluxmem.application.ports.lifecycle import LifecycleEvaluator
 from fluxmem.application.ports.unit_of_work import UnitOfWork
 from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
+from fluxmem.domain.retrieval import (
+    EMBEDDING_DIMENSIONS,
+    IndexStatus,
+    MemoryIndex,
+)
 
 
 class StoreMemory:
@@ -28,15 +37,35 @@ class StoreMemory:
         unit_of_work_factory: Callable[[], UnitOfWork],
         lifecycle_evaluator: LifecycleEvaluator | None = None,
         lifecycle_policy: LifecyclePolicyExecutor | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
         clock: Clock | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._lifecycle_evaluator = lifecycle_evaluator or RuleLifecycleEvaluator()
         self._fallback_evaluator = RuleLifecycleEvaluator()
         self._lifecycle_policy = lifecycle_policy or LifecyclePolicyExecutor()
+        self._embedding_provider = embedding_provider
         self._clock = clock or SystemClock()
+        if (
+            embedding_provider is not None
+            and embedding_provider.dimensions != EMBEDDING_DIMENSIONS
+        ):
+            raise ValueError(
+                "embedding provider dimensions do not match the database schema"
+            )
 
     def execute(self, *, user_id: UUID, memory: Memory) -> UUID:
+        embedding = None
+        if self._embedding_provider is not None:
+            try:
+                embedding = self._embedding_provider.embed(text=memory.content)
+            except EmbeddingProviderError:
+                embedding = None
+            if embedding is not None and len(embedding.values) != EMBEDDING_DIMENSIONS:
+                raise ValueError(
+                    "embedding provider returned a vector with invalid dimensions"
+                )
+
         with self._unit_of_work_factory() as unit_of_work:
             message = unit_of_work.messages.get(
                 message_id=memory.message_id,
@@ -58,9 +87,21 @@ class StoreMemory:
                 source_role=message.role,
                 initialized_at=initialized_at,
             )
+            memory_index = MemoryIndex(
+                memory_id=memory.memory_id,
+                text=memory.content,
+                embedding=embedding,
+                status=(
+                    IndexStatus.READY
+                    if embedding is not None
+                    else IndexStatus.PENDING
+                ),
+                indexed_at=initialized_at,
+            )
 
             unit_of_work.memories.add(memory=memory)
             unit_of_work.flush()
+            unit_of_work.memory_indexes.add(index=memory_index)
             unit_of_work.lifecycles.add(lifecycle=lifecycle)
             unit_of_work.commit()
 

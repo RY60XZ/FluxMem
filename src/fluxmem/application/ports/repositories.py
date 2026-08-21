@@ -4,10 +4,16 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from fluxmem.domain.info_pack import MemoryUsage, MessagePack, RetrievedMemory
+from fluxmem.domain.info_pack import MemoryUsage, RetrievedMemory
 from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
+from fluxmem.domain.retrieval import (
+    Embedding,
+    MemoryIndex,
+    MemorySearchQuery,
+    QueryType,
+)
 
 
 class MessageRepository(Protocol):
@@ -36,10 +42,42 @@ class MemoryRepository(Protocol):
     def search(
         self,
         *,
-        message_pack: MessagePack,
-        as_of: datetime,
-        limit: int,
+        query: MemorySearchQuery,
     ) -> tuple[RetrievedMemory, ...]: ...
+
+
+class MemoryIndexRepository(Protocol):
+    def add(self, *, index: MemoryIndex) -> None: ...
+
+    def list_pending(self, *, limit: int) -> tuple[Memory, ...]: ...
+
+    def mark_ready(
+        self,
+        *,
+        memory_id: UUID,
+        embedding: Embedding,
+        indexed_at: datetime,
+    ) -> bool: ...
+
+
+class RetrievalRepository(Protocol):
+    def add(
+        self,
+        *,
+        query_id: UUID,
+        session_id: UUID,
+        query_type: QueryType,
+        candidates: tuple[RetrievedMemory, ...],
+        created_at: datetime,
+    ) -> None: ...
+
+    def candidate_ids_for_query(
+        self,
+        *,
+        query_id: UUID,
+        user_id: UUID,
+        session_id: UUID,
+    ) -> tuple[UUID, ...] | None: ...
 
 
 class LifecycleRepository(Protocol):
@@ -56,6 +94,7 @@ class LifecycleRepository(Protocol):
         self,
         *,
         memory_id: UUID,
+        query_id: UUID,
         user_id: UUID,
         session_id: UUID,
         usage: MemoryUsage,

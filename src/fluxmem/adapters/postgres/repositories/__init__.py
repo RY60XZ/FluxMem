@@ -19,3 +19,14 @@ __all__ = (
     "SqlAlchemySessionRepository",
     "session_history",
 )
+from fluxmem.adapters.postgres.repositories.memory_indexes import (
+    SqlAlchemyMemoryIndexRepository,
+)
+from fluxmem.adapters.postgres.repositories.retrievals import (
+    SqlAlchemyRetrievalRepository,
+)
+
+__all__ = (
+    "SqlAlchemyMemoryIndexRepository",
+    "SqlAlchemyRetrievalRepository",
+)

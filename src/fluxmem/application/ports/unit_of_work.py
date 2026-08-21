@@ -5,8 +5,10 @@ from typing import Protocol, Self
 
 from fluxmem.application.ports.repositories import (
     LifecycleRepository,
+    MemoryIndexRepository,
     MemoryRepository,
     MessageRepository,
+    RetrievalRepository,
     SessionRepository,
 )
 
@@ -16,6 +18,8 @@ class UnitOfWork(Protocol):
     messages: MessageRepository
     sessions: SessionRepository
     memories: MemoryRepository
+    memory_indexes: MemoryIndexRepository
+    retrievals: RetrievalRepository
 
     def __enter__(self) -> Self: ...
 

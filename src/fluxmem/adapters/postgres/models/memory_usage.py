@@ -7,10 +7,11 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Float,
-    ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -24,6 +25,19 @@ class MemoryUsageRow(Base):
 
     __tablename__ = "memory_usage"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["query_id", "memory_id"],
+            [
+                "retrieval_candidates.query_id",
+                "retrieval_candidates.memory_id",
+            ],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "memory_id",
+            "query_id",
+            name="memory_usage_memory_query_key",
+        ),
         CheckConstraint(
             "usage_type IN ('context_included', 'model_attributed')",
             name="memory_usage_type",
@@ -46,9 +60,9 @@ class MemoryUsageRow(Base):
     )
     memory_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("memories.memory_id", ondelete="CASCADE"),
         nullable=False,
     )
+    query_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     usage_type: Mapped[str] = mapped_column(Text, nullable=False)
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     contribution: Mapped[float | None] = mapped_column(Float, nullable=True)

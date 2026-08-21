@@ -24,19 +24,33 @@ from fluxmem.domain.message import (
     Session,
     User,
 )
+from fluxmem.domain.retrieval import (
+    EMBEDDING_DIMENSIONS,
+    Embedding,
+    IndexStatus,
+    MemoryIndex,
+    MemorySearchQuery,
+    QueryType,
+)
 
 __all__ = (
     "FeedbackPack",
+    "EMBEDDING_DIMENSIONS",
     "DecisionSource",
     "DecayClass",
+    "Embedding",
+    "IndexStatus",
     "LifecycleDecision",
     "Memory",
     "MemoryLifecycle",
+    "MemoryIndex",
     "MemoryPack",
+    "MemorySearchQuery",
     "MemoryUsage",
     "Message",
     "MessagePack",
     "RetrievedMemory",
+    "QueryType",
     "Session",
     "Status",
     "Tier",

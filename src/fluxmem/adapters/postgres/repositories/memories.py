@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import case, func, literal, or_, select
+from sqlalchemy import case, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from fluxmem.adapters.postgres.models.lifecycle import MemoryLifecycleRow
 from fluxmem.adapters.postgres.models.message import MessageRow
-from fluxmem.adapters.postgres.models.memory import MemoryRow
+from fluxmem.adapters.postgres.models.memory import MemoryIndexRow, MemoryRow
 from fluxmem.adapters.postgres.models.session import SessionRow
-from fluxmem.domain.info_pack import MessagePack, RetrievedMemory
+from fluxmem.domain.info_pack import RetrievedMemory
 from fluxmem.domain.lifecycle import (
     RETENTION_FLOOR,
-    RELEVANCE_FLOOR,
     STABILITY_DAYS,
     DecayClass,
     Status,
 )
 from fluxmem.domain.memory import Memory
+from fluxmem.domain.retrieval import IndexStatus, MemorySearchQuery
 
 
 def _to_domain(row: MemoryRow) -> Memory:
@@ -71,33 +70,153 @@ class SqlAlchemyMemoryRepository:
     def search(
         self,
         *,
-        message_pack: MessagePack,
-        as_of: datetime,
-        limit: int,
+        query: MemorySearchQuery,
     ) -> tuple[RetrievedMemory, ...]:
-        """Run the initial lexical leg without discarding message metadata."""
+        """Fuse indexed lexical and dense candidates, then apply lifecycle."""
 
-        lexical_terms = tuple(
-            dict.fromkeys(
-                term
-                for message in message_pack.messages
-                for term in re.findall(r"\w+", message.content.casefold())
+        candidate_legs = []
+        eligibility = (
+            SessionRow.user_id == query.user_id,
+            MemoryLifecycleRow.status == Status.ACTIVE.value,
+            or_(
+                MemoryRow.session_applicability.is_(None),
+                MemoryRow.session_applicability == query.session_id,
+            ),
+            or_(MemoryRow.valid_from.is_(None), MemoryRow.valid_from <= query.as_of),
+            or_(MemoryRow.valid_to.is_(None), MemoryRow.valid_to >= query.as_of),
+        )
+
+        tokens = re.findall(r"\w+", query.text.casefold())
+        recent_unique_terms = tuple(dict.fromkeys(reversed(tokens)))[:256]
+        lexical_terms = tuple(reversed(recent_unique_terms))
+        if lexical_terms and query.lexical_weight > 0:
+            search_query = func.to_tsquery(
+                "english",
+                " | ".join(lexical_terms),
             )
-        )[:256]
-        if not lexical_terms:
+            lexical_score = func.ts_rank_cd(
+                MemoryIndexRow.search_text,
+                search_query,
+            )
+            lexical_rank = func.row_number().over(
+                order_by=(
+                    lexical_score.desc(),
+                    MemoryRow.created_at.desc(),
+                    MemoryRow.memory_id,
+                )
+            )
+            candidate_legs.append(
+                select(
+                    MemoryRow.memory_id.label("memory_id"),
+                    literal("lexical").label("source"),
+                    lexical_rank.label("source_rank"),
+                )
+                .select_from(MemoryIndexRow)
+                .join(
+                    MemoryRow,
+                    MemoryRow.memory_id == MemoryIndexRow.memory_id,
+                )
+                .join(MessageRow, MessageRow.message_id == MemoryRow.message_id)
+                .join(SessionRow, SessionRow.session_id == MessageRow.session_id)
+                .join(
+                    MemoryLifecycleRow,
+                    MemoryLifecycleRow.memory_id == MemoryRow.memory_id,
+                )
+                .where(
+                    *eligibility,
+                    MemoryIndexRow.search_text.op("@@")(search_query),
+                )
+                .order_by(
+                    lexical_score.desc(),
+                    MemoryRow.created_at.desc(),
+                    MemoryRow.memory_id,
+                )
+                .limit(query.candidate_limit)
+            )
+
+        if query.embedding is not None and query.dense_weight > 0:
+            distance = MemoryIndexRow.embedding.cosine_distance(
+                list(query.embedding.values)
+            )
+            dense_nearest = (
+                select(
+                    MemoryRow.memory_id.label("memory_id"),
+                    distance.label("distance"),
+                )
+                .select_from(MemoryIndexRow)
+                .join(
+                    MemoryRow,
+                    MemoryRow.memory_id == MemoryIndexRow.memory_id,
+                )
+                .join(MessageRow, MessageRow.message_id == MemoryRow.message_id)
+                .join(SessionRow, SessionRow.session_id == MessageRow.session_id)
+                .join(
+                    MemoryLifecycleRow,
+                    MemoryLifecycleRow.memory_id == MemoryRow.memory_id,
+                )
+                .where(
+                    *eligibility,
+                    MemoryIndexRow.index_status == IndexStatus.READY.value,
+                    MemoryIndexRow.embedding.is_not(None),
+                    MemoryIndexRow.embedding_model == query.embedding.model,
+                )
+                .order_by(distance)
+                .limit(query.candidate_limit)
+                .cte("dense_nearest")
+            )
+            dense_rank = func.row_number().over(
+                order_by=(
+                    dense_nearest.c.distance,
+                    dense_nearest.c.memory_id,
+                )
+            )
+            candidate_legs.append(
+                select(
+                    dense_nearest.c.memory_id,
+                    literal("dense").label("source"),
+                    dense_rank.label("source_rank"),
+                )
+                .select_from(dense_nearest)
+            )
+
+        if not candidate_legs:
             return ()
 
-        search_document = func.to_tsvector("english", MemoryRow.content)
-        search_query = func.websearch_to_tsquery(
-            "english",
-            " OR ".join(lexical_terms),
+        if len(candidate_legs) == 1:
+            candidates = candidate_legs[0].cte("retrieval_candidates")
+        else:
+            candidates = union_all(*candidate_legs).cte("retrieval_candidates")
+
+        source_weight = case(
+            (
+                candidates.c.source == "dense",
+                literal(query.dense_weight),
+            ),
+            else_=literal(query.lexical_weight),
         )
-        base_score = func.ts_rank_cd(search_document, search_query)
+        rrf_contribution = source_weight / (
+            literal(float(query.rrf_k)) + candidates.c.source_rank
+        )
+        fused = (
+            select(
+                candidates.c.memory_id,
+                func.sum(rrf_contribution).label("base_score"),
+                func.max(
+                    case((candidates.c.source == "dense", 1), else_=0)
+                ).label("dense_match"),
+                func.max(
+                    case((candidates.c.source == "lexical", 1), else_=0)
+                ).label("lexical_match"),
+            )
+            .group_by(candidates.c.memory_id)
+            .cte("fused_candidates")
+        )
+
         elapsed_days = func.greatest(
             0.0,
             func.extract(
                 "epoch",
-                literal(as_of) - MemoryLifecycleRow.retention_anchor,
+                literal(query.as_of) - MemoryLifecycleRow.retention_anchor,
             )
             / 86_400.0,
         )
@@ -118,11 +237,22 @@ class SqlAlchemyMemoryRepository:
             * func.exp(-elapsed_days / stability_days)
         ).label("retention")
         score = (
-            base_score
-            * (RELEVANCE_FLOOR + (1.0 - RELEVANCE_FLOOR) * retention)
+            fused.c.base_score
+            * (
+                query.relevance_floor
+                + (1.0 - query.relevance_floor) * retention
+            )
         ).label("score")
         statement = (
-            select(MemoryRow, score, retention)
+            select(
+                MemoryRow,
+                score,
+                retention,
+                fused.c.base_score,
+                fused.c.dense_match,
+                fused.c.lexical_match,
+            )
+            .join(fused, fused.c.memory_id == MemoryRow.memory_id)
             .join(MessageRow, MessageRow.message_id == MemoryRow.message_id)
             .join(SessionRow, SessionRow.session_id == MessageRow.session_id)
             .join(
@@ -130,27 +260,45 @@ class SqlAlchemyMemoryRepository:
                 MemoryLifecycleRow.memory_id == MemoryRow.memory_id,
             )
             .where(
-                SessionRow.user_id == message_pack.user_id,
+                SessionRow.user_id == query.user_id,
                 MemoryLifecycleRow.status == Status.ACTIVE.value,
                 or_(
                     MemoryRow.session_applicability.is_(None),
-                    MemoryRow.session_applicability == message_pack.session_id,
+                    MemoryRow.session_applicability == query.session_id,
                 ),
-                or_(MemoryRow.valid_from.is_(None), MemoryRow.valid_from <= as_of),
-                or_(MemoryRow.valid_to.is_(None), MemoryRow.valid_to >= as_of),
-                search_document.op("@@")(search_query),
+                or_(
+                    MemoryRow.valid_from.is_(None),
+                    MemoryRow.valid_from <= query.as_of,
+                ),
+                or_(
+                    MemoryRow.valid_to.is_(None),
+                    MemoryRow.valid_to >= query.as_of,
+                ),
             )
-            .order_by(score.desc(), MemoryRow.created_at.desc(), MemoryRow.memory_id)
-            .limit(limit)
+            .order_by(
+                score.desc(),
+                fused.c.base_score.desc(),
+                MemoryRow.created_at.desc(),
+                MemoryRow.memory_id,
+            )
+            .limit(query.limit)
         )
         rows = self._session.execute(statement).all()
-        return tuple(
-            RetrievedMemory(
-                memory=_to_domain(row),
-                rank=rank,
-                score=float(row_score),
-                retention=float(row_retention),
-                retrieval_reasons=("lexical", "lifecycle"),
+        retrieved: list[RetrievedMemory] = []
+        for rank, result in enumerate(rows, start=1):
+            reasons: list[str] = []
+            if result.dense_match:
+                reasons.append("dense")
+            if result.lexical_match:
+                reasons.append("lexical")
+            reasons.append("lifecycle")
+            retrieved.append(
+                RetrievedMemory(
+                    memory=_to_domain(result[0]),
+                    rank=rank,
+                    score=float(result.score),
+                    retention=float(result.retention),
+                    retrieval_reasons=tuple(reasons),
+                )
             )
-            for rank, (row, row_score, row_retention) in enumerate(rows, start=1)
-        )
+        return tuple(retrieved)

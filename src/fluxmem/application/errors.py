@@ -15,3 +15,11 @@ class InvalidSessionApplicabilityError(ValueError):
 
 class InvalidRetrievalContextError(ValueError):
     """Messages supplied to retrieval do not describe the same session."""
+
+
+class RetrievalNotFoundError(LookupError):
+    """The feedback query does not exist in the requested session scope."""
+
+
+class InvalidMemoryFeedbackError(ValueError):
+    """Feedback refers to a memory that its retrieval did not return."""

@@ -3,20 +3,27 @@ from __future__ import annotations
 import unittest
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from fluxmem.adapters.postgres.models import (
     Base,
     MemoryLifecycleRow,
     MemoryRow,
+    MemoryUsageRow,
     MessageRow,
+    RetrievalCandidateRow,
+    RetrievalQueryRow,
     SessionRow,
     UserRow,
 )
 from fluxmem.adapters.postgres.unit_of_work import SqlAlchemyUnitOfWork
+from fluxmem.application.errors import (
+    InvalidMemoryFeedbackError,
+    RetrievalNotFoundError,
+)
 from fluxmem.application.write.reinforcement import ReinforceMemory
 from fluxmem.domain.info_pack import FeedbackPack, MemoryUsage, UsageType
 from fluxmem.domain.lifecycle import DecayClass, Tier
@@ -126,9 +133,73 @@ class ReinforcementIntegrationTests(unittest.TestCase):
         self.assertEqual(fifth.tier, Tier.LONG_TERM)
         self.assertEqual(fifth.decay_class, DecayClass.SLOW)
 
+    def test_query_retry_updates_signal_without_reinforcing_twice(self) -> None:
+        query_id = uuid4()
+        first = self._execute(
+            query_id,
+            MemoryUsage(
+                memory_id=self.memory_id,
+                usage_type=UsageType.CONTEXT_INCLUDED,
+                rank=2,
+            ),
+        )[0]
+        retry = self._execute(
+            query_id,
+            MemoryUsage(
+                memory_id=self.memory_id,
+                usage_type=UsageType.MODEL_ATTRIBUTED,
+                rank=1,
+                contribution=0.8,
+            ),
+        )[0]
+
+        self.assertEqual(first.reinforcement_count, 1)
+        self.assertEqual(retry.reinforcement_count, 1)
+        self.assertAlmostEqual(retry.importance, first.importance)
+        with self.session_factory() as session:
+            usage = session.scalar(select(MemoryUsageRow))
+            self.assertIsNotNone(usage)
+            self.assertEqual(usage.query_id, query_id)
+            self.assertEqual(
+                usage.usage_type,
+                UsageType.MODEL_ATTRIBUTED.value,
+            )
+            self.assertEqual(usage.rank, 1)
+
+    def test_feedback_rejects_memory_not_returned_by_query(self) -> None:
+        query_id = uuid4()
+        self._record_query(query_id)
+
+        with self.assertRaises(InvalidMemoryFeedbackError):
+            self.reinforce.execute(
+                feedback_pack=FeedbackPack(
+                    query_id=query_id,
+                    user_id=self.user_id,
+                    session_id=self.session_id,
+                    used_memories=(
+                        MemoryUsage(
+                            memory_id=uuid4(),
+                            usage_type=UsageType.CONTEXT_INCLUDED,
+                        ),
+                    ),
+                )
+            )
+
+    def test_feedback_rejects_unknown_query(self) -> None:
+        with self.assertRaises(RetrievalNotFoundError):
+            self.reinforce.execute(
+                feedback_pack=FeedbackPack(
+                    query_id=uuid4(),
+                    user_id=self.user_id,
+                    session_id=self.session_id,
+                    used_memories=(),
+                )
+            )
+
     def _attributed_use(self):
+        query_id = uuid4()
         return self._execute(
-            uuid4(),
+            query_id,
             MemoryUsage(
                 memory_id=self.memory_id,
                 usage_type=UsageType.MODEL_ATTRIBUTED,
@@ -137,15 +208,39 @@ class ReinforcementIntegrationTests(unittest.TestCase):
 
     def _execute(
         self,
+        query_id: UUID,
         *usages: MemoryUsage,
     ):
+        self._record_query(query_id)
         return self.reinforce.execute(
             feedback_pack=FeedbackPack(
+                query_id=query_id,
                 user_id=self.user_id,
                 session_id=self.session_id,
                 used_memories=tuple(usages),
             )
         )
+
+    def _record_query(self, query_id: UUID) -> None:
+        with self.session_factory() as session:
+            if session.get(RetrievalQueryRow, query_id) is None:
+                session.add(
+                    RetrievalQueryRow(
+                        query_id=query_id,
+                        session_id=self.session_id,
+                        query_type="answering",
+                        created_at=self.clock.current,
+                    )
+                )
+                session.add(
+                    RetrievalCandidateRow(
+                        query_id=query_id,
+                        memory_id=self.memory_id,
+                        rank=1,
+                        score=1.0,
+                    )
+                )
+                session.commit()
 
 
 if __name__ == "__main__":

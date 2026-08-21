@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from fluxmem.adapters.postgres.repositories.memories import (
     SqlAlchemyMemoryRepository,
 )
+from fluxmem.adapters.postgres.repositories.memory_indexes import (
+    SqlAlchemyMemoryIndexRepository,
+)
 from fluxmem.adapters.postgres.repositories.lifecycles import (
     SqlAlchemyLifecycleRepository,
 )
@@ -15,6 +18,9 @@ from fluxmem.adapters.postgres.repositories.messages import (
 )
 from fluxmem.adapters.postgres.repositories.sessions import (
     SqlAlchemySessionRepository,
+)
+from fluxmem.adapters.postgres.repositories.retrievals import (
+    SqlAlchemyRetrievalRepository,
 )
 
 
@@ -30,6 +36,8 @@ class SqlAlchemyUnitOfWork:
         self.messages = SqlAlchemyMessageRepository(self._session)
         self.sessions = SqlAlchemySessionRepository(self._session)
         self.memories = SqlAlchemyMemoryRepository(self._session)
+        self.memory_indexes = SqlAlchemyMemoryIndexRepository(self._session)
+        self.retrievals = SqlAlchemyRetrievalRepository(self._session)
         return self
 
     def __exit__(

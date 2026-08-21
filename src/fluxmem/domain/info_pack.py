@@ -23,6 +23,7 @@ class RetrievedMemory:
 class MemoryPack:
     """The ordered result of one scoped memory-retrieval query."""
 
+    query_id: UUID
     user_id: UUID
     session_id: UUID
     memories: tuple[RetrievedMemory, ...]
@@ -60,6 +61,7 @@ class MemoryUsage:
 class FeedbackPack:
     """Usage observations for a completed retrieval query."""
 
+    query_id: UUID
     user_id: UUID
     session_id: UUID
     used_memories: tuple[MemoryUsage, ...]

@@ -3,7 +3,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from uuid import UUID
 
-from fluxmem.application.errors import SessionNotFoundError
+from fluxmem.application.errors import (
+    InvalidMemoryFeedbackError,
+    RetrievalNotFoundError,
+    SessionNotFoundError,
+)
 from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.unit_of_work import UnitOfWork
 from fluxmem.domain.info_pack import FeedbackPack, MemoryUsage, UsageType
@@ -39,10 +43,28 @@ class ReinforceMemory:
                     "feedback session does not belong to the requested user"
                 )
 
+            candidate_ids = unit_of_work.retrievals.candidate_ids_for_query(
+                query_id=feedback_pack.query_id,
+                user_id=feedback_pack.user_id,
+                session_id=feedback_pack.session_id,
+            )
+            if candidate_ids is None:
+                raise RetrievalNotFoundError(
+                    "feedback query does not belong to the requested session"
+                )
+            invalid_memory_ids = {
+                usage.memory_id for usage in usages
+            }.difference(candidate_ids)
+            if invalid_memory_ids:
+                raise InvalidMemoryFeedbackError(
+                    "feedback can only reference memories returned by its query"
+                )
+
             reinforced: list[MemoryLifecycle] = []
             for usage in usages:
                 lifecycle = unit_of_work.lifecycles.reinforce(
                     memory_id=usage.memory_id,
+                    query_id=feedback_pack.query_id,
                     user_id=feedback_pack.user_id,
                     session_id=feedback_pack.session_id,
                     usage=usage,
