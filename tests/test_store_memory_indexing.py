@@ -4,6 +4,7 @@ import unittest
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from fluxmem.domain.conflict import ConflictProposal
 from fluxmem.application.ports.embeddings import EmbeddingProviderError
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.domain.memory import Memory
@@ -12,6 +13,7 @@ from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
     Embedding,
     IndexStatus,
+    QueryType,
 )
 
 
@@ -54,12 +56,24 @@ class RecordingRepository:
         self.added.append(values)
 
 
+class FakeRetrievals:
+    def __init__(self, candidate_ids=()) -> None:
+        self.candidate_ids = candidate_ids
+        self.request = None
+
+    def candidate_ids_for_query(self, **values):
+        self.request = values
+        return self.candidate_ids
+
+
 class FakeUnitOfWork:
-    def __init__(self, message: Message) -> None:
+    def __init__(self, message: Message, *, candidate_ids=()) -> None:
         self.messages = FakeMessages(message)
         self.memories = RecordingRepository()
         self.memory_indexes = RecordingRepository()
         self.lifecycles = RecordingRepository()
+        self.conflicts = RecordingRepository()
+        self.retrievals = FakeRetrievals(candidate_ids)
         self.committed = False
 
     def __enter__(self):
@@ -124,6 +138,49 @@ class StoreMemoryIndexingTests(unittest.TestCase):
         self.assertEqual(index.status, IndexStatus.PENDING)
         self.assertIsNone(index.embedding)
         self.assertTrue(unit_of_work.committed)
+
+    def test_only_adding_query_candidates_become_conflict_edges(self) -> None:
+        eligible_id = uuid4()
+        fabricated_id = uuid4()
+        query_id = uuid4()
+        unit_of_work = FakeUnitOfWork(
+            self.message,
+            candidate_ids=(eligible_id,),
+        )
+        service = StoreMemory(
+            unit_of_work_factory=lambda: unit_of_work,
+            embedding_provider=FakeEmbeddingProvider(),
+            clock=FixedClock(self.now),
+        )
+
+        service.execute(
+            user_id=self.user_id,
+            memory=self.memory,
+            write_context_query_id=query_id,
+            conflict_proposals=(
+                ConflictProposal(eligible_id, confidence=0.9),
+                ConflictProposal(eligible_id, confidence=0.2),
+                ConflictProposal(fabricated_id, confidence=0.8),
+                ConflictProposal(self.memory.memory_id, confidence=0.7),
+            ),
+        )
+
+        self.assertEqual(len(unit_of_work.conflicts.added), 1)
+        conflict = unit_of_work.conflicts.added[0]["conflict"]
+        self.assertEqual(
+            {conflict.memory_a_id, conflict.memory_b_id},
+            {self.memory.memory_id, eligible_id},
+        )
+        self.assertEqual(conflict.confidence, 0.9)
+        self.assertEqual(
+            unit_of_work.retrievals.request,
+            {
+                "query_id": query_id,
+                "user_id": self.user_id,
+                "session_id": self.session_id,
+                "query_type": QueryType.ADDING,
+            },
+        )
 
 
 if __name__ == "__main__":

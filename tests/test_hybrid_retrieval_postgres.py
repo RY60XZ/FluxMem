@@ -22,8 +22,15 @@ from fluxmem.adapters.postgres.models import (
 from fluxmem.adapters.postgres.repositories.memory_indexes import (
     SqlAlchemyMemoryIndexRepository,
 )
+from fluxmem.adapters.postgres.repositories.conflicts import (
+    SqlAlchemyConflictRepository,
+)
 from fluxmem.adapters.postgres.unit_of_work import SqlAlchemyUnitOfWork
-from fluxmem.application.read.retrieval import RetrievalForAnswering
+from fluxmem.application.read.retrieval import (
+    HybridRetrievalSettings,
+    RetrievalForAnswering,
+)
+from fluxmem.domain.conflict import MemoryConflict
 from fluxmem.domain.info_pack import MessagePack
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
@@ -163,6 +170,77 @@ class HybridRetrievalPostgresTests(unittest.TestCase):
             ).all()
         self.assertIsNotNone(query)
         self.assertEqual(len(candidates), 3)
+
+    def test_conflict_expansion_stops_after_one_hop(self) -> None:
+        neighbor_id = self._add_memory(
+            content="unrelated prior claim",
+            embedding=None,
+        )
+        second_hop_id = self._add_memory(
+            content="another unrelated claim",
+            embedding=None,
+        )
+        self._add_conflict(self.hybrid_id, neighbor_id)
+        self._add_conflict(neighbor_id, second_hop_id)
+
+        def unit_of_work_factory() -> SqlAlchemyUnitOfWork:
+            return SqlAlchemyUnitOfWork(self.session_factory)
+
+        service = RetrievalForAnswering(
+            unit_of_work_factory=unit_of_work_factory,
+            embedding_provider=FixedEmbeddingProvider(),
+            settings=HybridRetrievalSettings(
+                maximum_conflicts_per_seed=3,
+                maximum_conflict_expansions=3,
+            ),
+        )
+        message = Message(
+            message_id=uuid4(),
+            session_id=self.session_id,
+            role="user",
+            agent_id=None,
+            content="volcano",
+            created_at=self.now,
+        )
+
+        result = service.execute(
+            message=message,
+            session_history=MessagePack(
+                user_id=self.user_id,
+                session_id=self.session_id,
+                messages=(),
+            ),
+            limit=1,
+        )
+
+        returned_ids = tuple(
+            item.memory.memory_id for item in result.memories
+        )
+        self.assertEqual(returned_ids, (self.hybrid_id, neighbor_id))
+        self.assertNotIn(second_hop_id, returned_ids)
+        self.assertEqual(len(result.conflicts), 1)
+        self.assertFalse(result.conflict_expansion_truncated)
+        with self.session_factory() as session:
+            candidate_ids = set(
+                session.scalars(
+                    select(RetrievalCandidateRow.memory_id).where(
+                        RetrievalCandidateRow.query_id == result.query_id
+                    )
+                )
+            )
+        self.assertEqual(candidate_ids, {self.hybrid_id, neighbor_id})
+
+    def _add_conflict(self, first_id, second_id) -> None:
+        with self.session_factory() as session:
+            SqlAlchemyConflictRepository(session).add(
+                conflict=MemoryConflict.between(
+                    memory_id=first_id,
+                    neighbor_memory_id=second_id,
+                    confidence=0.9,
+                    created_at=self.now,
+                )
+            )
+            session.commit()
 
     def _add_memory(
         self,

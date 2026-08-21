@@ -60,7 +60,6 @@ def upgrade() -> None:
             NULL,
             to_tsvector('english', coalesce(content, '')),
             NULL,
-            1,
             'pending',
             now()
         FROM memories

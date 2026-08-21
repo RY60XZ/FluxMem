@@ -6,9 +6,13 @@ from uuid import uuid4
 
 from sqlalchemy.dialects import postgresql
 
+from fluxmem.adapters.postgres.repositories.conflicts import (
+    SqlAlchemyConflictRepository,
+)
 from fluxmem.adapters.postgres.repositories.memories import (
     SqlAlchemyMemoryRepository,
 )
+from fluxmem.domain.conflict import MemoryConflict
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
     Embedding,
@@ -69,6 +73,54 @@ class HybridQuerySqlTests(unittest.TestCase):
         self.assertIn("fused_candidates", sql)
         self.assertIn("memory_lifecycle.status", sql)
         self.assertIn("memories.session_applicability", sql)
+
+    def test_conflict_expansion_is_one_scoped_adjacency_query(self) -> None:
+        session = _RecordingSession()
+        repository = SqlAlchemyConflictRepository(session)
+
+        result = repository.expand(
+            seed_memory_ids=(uuid4(), uuid4()),
+            user_id=uuid4(),
+            session_id=uuid4(),
+            as_of=datetime(2026, 8, 21, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(result, ())
+        sql = str(
+            session.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": False},
+            )
+        )
+        self.assertIn("FROM memory_conflicts", sql)
+        self.assertIn("memory_conflicts.memory_a_id IN", sql)
+        self.assertIn("memory_conflicts.memory_b_id IN", sql)
+        self.assertIn("memory_lifecycle.status", sql)
+        self.assertIn("memories.session_applicability", sql)
+
+    def test_conflict_insert_is_canonical_and_idempotent(self) -> None:
+        session = _RecordingSession()
+        repository = SqlAlchemyConflictRepository(session)
+        now = datetime(2026, 8, 21, tzinfo=timezone.utc)
+
+        repository.add(
+            conflict=MemoryConflict.between(
+                memory_id=uuid4(),
+                neighbor_memory_id=uuid4(),
+                confidence=0.8,
+                created_at=now,
+            )
+        )
+
+        sql = str(
+            session.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": False},
+            )
+        )
+        self.assertIn("INSERT INTO memory_conflicts", sql)
+        self.assertIn("ON CONFLICT", sql)
+        self.assertIn("DO NOTHING", sql)
 
 
 if __name__ == "__main__":

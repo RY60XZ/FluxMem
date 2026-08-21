@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
 
+from fluxmem.domain.conflict import MemoryConflict
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
@@ -27,6 +28,8 @@ class MemoryPack:
     user_id: UUID
     session_id: UUID
     memories: tuple[RetrievedMemory, ...]
+    conflicts: tuple[MemoryConflict, ...] = ()
+    conflict_expansion_truncated: bool = False
 
 
 @dataclass(frozen=True, slots=True)

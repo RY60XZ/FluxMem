@@ -14,7 +14,8 @@ from fluxmem.application.ports.embeddings import (
     EmbeddingProviderError,
 )
 from fluxmem.application.ports.unit_of_work import UnitOfWork
-from fluxmem.domain.info_pack import MemoryPack, MessagePack
+from fluxmem.domain.conflict import ConflictNeighbor, MemoryConflict
+from fluxmem.domain.info_pack import MemoryPack, MessagePack, RetrievedMemory
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
@@ -36,6 +37,8 @@ class HybridRetrievalSettings:
     dense_weight: float = 1.0
     lexical_weight: float = 1.0
     relevance_floor: float = 0.6
+    maximum_conflicts_per_seed: int = 3
+    maximum_conflict_expansions: int = 10
 
     def __post_init__(self) -> None:
         if self.max_query_messages < 1 or self.max_query_characters < 1:
@@ -52,6 +55,10 @@ class HybridRetrievalSettings:
             raise ValueError("at least one retrieval source must be weighted")
         if not 0.0 <= self.relevance_floor <= 1.0:
             raise ValueError("relevance floor must be between 0 and 1")
+        if self.maximum_conflicts_per_seed < 0:
+            raise ValueError("per-seed conflict limit cannot be negative")
+        if self.maximum_conflict_expansions < 0:
+            raise ValueError("global conflict limit cannot be negative")
 
     def candidate_limit(self, result_limit: int) -> int:
         requested = max(
@@ -114,6 +121,116 @@ def _bounded_query_text(
         if remaining == 0:
             break
     return "\n".join(reversed(selected))
+
+
+@dataclass(frozen=True, slots=True)
+class _ConflictExpansion:
+    memories: tuple[RetrievedMemory, ...]
+    conflicts: tuple[MemoryConflict, ...]
+    truncated: bool
+
+
+def _expand_conflict_neighbors(
+    *,
+    seeds: tuple[RetrievedMemory, ...],
+    neighbors: tuple[ConflictNeighbor, ...],
+    settings: HybridRetrievalSettings,
+) -> _ConflictExpansion:
+    """Apply fair per-seed and global budgets without adding another hop."""
+
+    if not seeds or not neighbors:
+        return _ConflictExpansion(
+            memories=seeds,
+            conflicts=(),
+            truncated=False,
+        )
+
+    ordered_seeds = tuple(sorted(seeds, key=lambda seed: seed.rank))
+    seed_by_id = {seed.memory.memory_id: seed for seed in ordered_seeds}
+    seed_ids = set(seed_by_id)
+    grouped: dict[UUID, list[ConflictNeighbor]] = {
+        memory_id: [] for memory_id in seed_by_id
+    }
+    for neighbor in neighbors:
+        if neighbor.seed_memory_id in grouped:
+            grouped[neighbor.seed_memory_id].append(neighbor)
+
+    def priority(neighbor: ConflictNeighbor) -> tuple[bool, float, float, int]:
+        confidence = neighbor.conflict.confidence
+        return (
+            confidence is None,
+            -(confidence if confidence is not None else 0.0),
+            -neighbor.retention,
+            neighbor.memory.memory_id.int,
+        )
+
+    queues: dict[UUID, list[ConflictNeighbor]] = {}
+    eligible_neighbor_ids: set[UUID] = set()
+    for seed in ordered_seeds:
+        seed_id = seed.memory.memory_id
+        expansion_candidates = [
+            neighbor
+            for neighbor in grouped[seed_id]
+            if neighbor.memory.memory_id not in seed_ids
+        ]
+        eligible_neighbor_ids.update(
+            neighbor.memory.memory_id for neighbor in expansion_candidates
+        )
+        queues[seed_id] = sorted(
+            expansion_candidates,
+            key=priority,
+        )[: settings.maximum_conflicts_per_seed]
+
+    selected: dict[UUID, ConflictNeighbor] = {}
+    while len(selected) < settings.maximum_conflict_expansions:
+        made_progress = False
+        for seed in ordered_seeds:
+            queue = queues[seed.memory.memory_id]
+            while queue:
+                neighbor = queue.pop(0)
+                neighbor_id = neighbor.memory.memory_id
+                if neighbor_id in selected:
+                    continue
+                selected[neighbor_id] = neighbor
+                made_progress = True
+                break
+            if len(selected) >= settings.maximum_conflict_expansions:
+                break
+        if not made_progress:
+            break
+
+    expanded_memories = list(ordered_seeds)
+    for neighbor in selected.values():
+        seed = seed_by_id[neighbor.seed_memory_id]
+        confidence = neighbor.conflict.confidence
+        conflict_weight = confidence if confidence is not None else 1.0
+        expanded_memories.append(
+            RetrievedMemory(
+                memory=neighbor.memory,
+                rank=len(expanded_memories) + 1,
+                score=seed.score * conflict_weight,
+                retention=neighbor.retention,
+                retrieval_reasons=("conflict", "lifecycle"),
+            )
+        )
+
+    included_ids = seed_ids.union(selected)
+    conflicts_by_pair = {
+        (neighbor.conflict.memory_a_id, neighbor.conflict.memory_b_id): (
+            neighbor.conflict
+        )
+        for neighbor in neighbors
+        if neighbor.conflict.memory_a_id in included_ids
+        and neighbor.conflict.memory_b_id in included_ids
+    }
+    conflicts = tuple(
+        conflicts_by_pair[key] for key in sorted(conflicts_by_pair)
+    )
+    return _ConflictExpansion(
+        memories=tuple(expanded_memories),
+        conflicts=conflicts,
+        truncated=set(selected) != eligible_neighbor_ids,
+    )
 
 
 class _HybridRetrieval:
@@ -194,12 +311,31 @@ class _HybridRetrieval:
                     "retrieval session does not belong to the requested user"
                 )
 
-            memories = unit_of_work.memories.search(query=search_query)
+            seed_memories = unit_of_work.memories.search(query=search_query)
+            conflict_neighbors = ()
+            if (
+                seed_memories
+                and self._settings.maximum_conflicts_per_seed > 0
+                and self._settings.maximum_conflict_expansions > 0
+            ):
+                conflict_neighbors = unit_of_work.conflicts.expand(
+                    seed_memory_ids=tuple(
+                        memory.memory.memory_id for memory in seed_memories
+                    ),
+                    user_id=message_pack.user_id,
+                    session_id=message_pack.session_id,
+                    as_of=retrieved_at,
+                )
+            expansion = _expand_conflict_neighbors(
+                seeds=seed_memories,
+                neighbors=conflict_neighbors,
+                settings=self._settings,
+            )
             unit_of_work.retrievals.add(
                 query_id=query_id,
                 session_id=message_pack.session_id,
                 query_type=query_type,
-                candidates=memories,
+                candidates=expansion.memories,
                 created_at=retrieved_at,
             )
             unit_of_work.commit()
@@ -208,7 +344,9 @@ class _HybridRetrieval:
             query_id=query_id,
             user_id=message_pack.user_id,
             session_id=message_pack.session_id,
-            memories=memories,
+            memories=expansion.memories,
+            conflicts=expansion.conflicts,
+            conflict_expansion_truncated=expansion.truncated,
         )
 
 

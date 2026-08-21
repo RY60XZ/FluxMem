@@ -27,6 +27,7 @@ from fluxmem.application.errors import (
 from fluxmem.application.write.reinforcement import ReinforceMemory
 from fluxmem.domain.info_pack import FeedbackPack, MemoryUsage, UsageType
 from fluxmem.domain.lifecycle import DecayClass, Tier
+from fluxmem.domain.retrieval import QueryType
 
 
 @dataclass
@@ -196,6 +197,47 @@ class ReinforcementIntegrationTests(unittest.TestCase):
                 )
             )
 
+    def test_answering_query_is_not_valid_adding_context(self) -> None:
+        query_id = uuid4()
+        self._record_query(query_id)
+
+        with SqlAlchemyUnitOfWork(self.session_factory) as unit_of_work:
+            candidate_ids = unit_of_work.retrievals.candidate_ids_for_query(
+                query_id=query_id,
+                user_id=self.user_id,
+                session_id=self.session_id,
+                query_type=QueryType.ADDING,
+            )
+
+        self.assertIsNone(candidate_ids)
+
+    def test_adding_context_only_returns_currently_active_candidates(self) -> None:
+        query_id = uuid4()
+        self._record_query(query_id, query_type="adding")
+
+        with SqlAlchemyUnitOfWork(self.session_factory) as unit_of_work:
+            active_ids = unit_of_work.retrievals.candidate_ids_for_query(
+                query_id=query_id,
+                user_id=self.user_id,
+                session_id=self.session_id,
+                query_type=QueryType.ADDING,
+            )
+        self.assertEqual(active_ids, (self.memory_id,))
+
+        with self.session_factory() as session:
+            lifecycle = session.get(MemoryLifecycleRow, self.memory_id)
+            lifecycle.status = "deleted"
+            session.commit()
+
+        with SqlAlchemyUnitOfWork(self.session_factory) as unit_of_work:
+            active_ids = unit_of_work.retrievals.candidate_ids_for_query(
+                query_id=query_id,
+                user_id=self.user_id,
+                session_id=self.session_id,
+                query_type=QueryType.ADDING,
+            )
+        self.assertEqual(active_ids, ())
+
     def _attributed_use(self):
         query_id = uuid4()
         return self._execute(
@@ -221,14 +263,19 @@ class ReinforcementIntegrationTests(unittest.TestCase):
             )
         )
 
-    def _record_query(self, query_id: UUID) -> None:
+    def _record_query(
+        self,
+        query_id: UUID,
+        *,
+        query_type: str = "answering",
+    ) -> None:
         with self.session_factory() as session:
             if session.get(RetrievalQueryRow, query_id) is None:
                 session.add(
                     RetrievalQueryRow(
                         query_id=query_id,
                         session_id=self.session_id,
-                        query_type="answering",
+                        query_type=query_type,
                         created_at=self.clock.current,
                     )
                 )

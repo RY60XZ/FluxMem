@@ -4,14 +4,17 @@ from types import TracebackType
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from fluxmem.adapters.postgres.repositories.conflicts import (
+    SqlAlchemyConflictRepository,
+)
+from fluxmem.adapters.postgres.repositories.lifecycles import (
+    SqlAlchemyLifecycleRepository,
+)
 from fluxmem.adapters.postgres.repositories.memories import (
     SqlAlchemyMemoryRepository,
 )
 from fluxmem.adapters.postgres.repositories.memory_indexes import (
     SqlAlchemyMemoryIndexRepository,
-)
-from fluxmem.adapters.postgres.repositories.lifecycles import (
-    SqlAlchemyLifecycleRepository,
 )
 from fluxmem.adapters.postgres.repositories.messages import (
     SqlAlchemyMessageRepository,
@@ -38,6 +41,7 @@ class SqlAlchemyUnitOfWork:
         self.memories = SqlAlchemyMemoryRepository(self._session)
         self.memory_indexes = SqlAlchemyMemoryIndexRepository(self._session)
         self.retrievals = SqlAlchemyRetrievalRepository(self._session)
+        self.conflicts = SqlAlchemyConflictRepository(self._session)
         return self
 
     def __exit__(

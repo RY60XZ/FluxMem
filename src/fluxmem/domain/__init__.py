@@ -1,5 +1,10 @@
 """Database-independent objects used by FluxMem application code."""
 
+from fluxmem.domain.conflict import (
+    ConflictNeighbor,
+    ConflictProposal,
+    MemoryConflict,
+)
 from fluxmem.domain.info_pack import (
     FeedbackPack,
     MemoryPack,
@@ -35,6 +40,8 @@ from fluxmem.domain.retrieval import (
 
 __all__ = (
     "FeedbackPack",
+    "ConflictNeighbor",
+    "ConflictProposal",
     "EMBEDDING_DIMENSIONS",
     "DecisionSource",
     "DecayClass",
@@ -43,6 +50,7 @@ __all__ = (
     "LifecycleDecision",
     "Memory",
     "MemoryLifecycle",
+    "MemoryConflict",
     "MemoryIndex",
     "MemoryPack",
     "MemorySearchQuery",
