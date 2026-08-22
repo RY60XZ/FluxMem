@@ -22,6 +22,7 @@ from fluxmem.application.ports.unit_of_work import UnitOfWork
 from fluxmem.domain.conflict import ConflictProposal, MemoryConflict
 from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
+from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
     IndexStatus,
@@ -64,6 +65,15 @@ class StoreMemory:
         write_context_query_id: UUID | None = None,
         conflict_proposals: tuple[ConflictProposal, ...] = (),
     ) -> UUID:
+        # Resolve immutable evidence in a short read transaction. Provider calls
+        # happen only after this context has closed.
+        with self._unit_of_work_factory() as unit_of_work:
+            source_message = self._validated_source_message(
+                unit_of_work=unit_of_work,
+                user_id=user_id,
+                memory=memory,
+            )
+
         embedding = None
         if self._embedding_provider is not None:
             try:
@@ -75,37 +85,29 @@ class StoreMemory:
                     "embedding provider returned a vector with invalid dimensions"
                 )
 
+        initialized_at = self._clock.now()
+        lifecycle = self._initial_lifecycle(
+            memory=memory,
+            source_role=source_message.role,
+            initialized_at=initialized_at,
+        )
+        memory_index = MemoryIndex(
+            memory_id=memory.memory_id,
+            text=memory.content,
+            embedding=embedding,
+            status=(
+                IndexStatus.READY
+                if embedding is not None
+                else IndexStatus.PENDING
+            ),
+            indexed_at=initialized_at,
+        )
+
         with self._unit_of_work_factory() as unit_of_work:
-            message = unit_of_work.messages.get(
-                message_id=memory.message_id,
+            message = self._validated_source_message(
+                unit_of_work=unit_of_work,
                 user_id=user_id,
-            )
-            if message is None:
-                raise MessageNotFoundError(
-                    "origin message does not belong to the requested user"
-                )
-
-            if memory.session_applicability not in (None, message.session_id):
-                raise InvalidSessionApplicabilityError(
-                    "session-limited memory must use its origin message's session"
-                )
-
-            initialized_at = self._clock.now()
-            lifecycle = self._initial_lifecycle(
                 memory=memory,
-                source_role=message.role,
-                initialized_at=initialized_at,
-            )
-            memory_index = MemoryIndex(
-                memory_id=memory.memory_id,
-                text=memory.content,
-                embedding=embedding,
-                status=(
-                    IndexStatus.READY
-                    if embedding is not None
-                    else IndexStatus.PENDING
-                ),
-                indexed_at=initialized_at,
             )
             conflicts = self._validated_conflicts(
                 unit_of_work=unit_of_work,
@@ -128,6 +130,27 @@ class StoreMemory:
         return memory.memory_id
 
     @staticmethod
+    def _validated_source_message(
+        *,
+        unit_of_work: UnitOfWork,
+        user_id: UUID,
+        memory: Memory,
+    ) -> Message:
+        message = unit_of_work.messages.get(
+            message_id=memory.message_id,
+            user_id=user_id,
+        )
+        if message is None:
+            raise MessageNotFoundError(
+                "origin message does not belong to the requested user"
+            )
+        if memory.session_applicability not in (None, message.session_id):
+            raise InvalidSessionApplicabilityError(
+                "session-limited memory must use its origin message's session"
+            )
+        return message
+
+    @staticmethod
     def _validated_conflicts(
         *,
         unit_of_work: UnitOfWork,
@@ -145,7 +168,7 @@ class StoreMemory:
             query_id=query_id,
             user_id=user_id,
             session_id=session_id,
-            query_type=QueryType.ADDING,
+            query_type=QueryType.ANSWERING,
         )
         if candidate_ids is None:
             return ()

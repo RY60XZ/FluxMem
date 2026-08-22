@@ -33,6 +33,33 @@ class MemoryPack:
 
 
 @dataclass(frozen=True, slots=True)
+class TurnMemoryPacks:
+    """Seed and conflict-expanded views of one persisted retrieval event."""
+
+    seeds: MemoryPack
+    expanded: MemoryPack
+
+    def __post_init__(self) -> None:
+        if self.seeds.query_id != self.expanded.query_id:
+            raise ValueError("turn memory views must share one query ID")
+        if self.seeds.user_id != self.expanded.user_id:
+            raise ValueError("turn memory views must share one user")
+        if self.seeds.session_id != self.expanded.session_id:
+            raise ValueError("turn memory views must share one session")
+        seed_ids = tuple(
+            retrieved.memory.memory_id for retrieved in self.seeds.memories
+        )
+        expanded_prefix = tuple(
+            retrieved.memory.memory_id
+            for retrieved in self.expanded.memories[: len(seed_ids)]
+        )
+        if expanded_prefix != seed_ids:
+            raise ValueError("expanded turn context must begin with its seeds")
+        if self.seeds.conflicts or self.seeds.conflict_expansion_truncated:
+            raise ValueError("seed context cannot contain conflict expansion")
+
+
+@dataclass(frozen=True, slots=True)
 class MessagePack:
     """Chronological history for one user-owned session."""
 

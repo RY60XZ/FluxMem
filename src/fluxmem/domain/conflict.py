@@ -9,7 +9,7 @@ from fluxmem.domain.memory import Memory
 
 @dataclass(frozen=True, slots=True)
 class ConflictProposal:
-    """A potential conflict selected from one write-time context pack."""
+    """A potential conflict selected from persisted turn context."""
 
     neighbor_memory_id: UUID
     confidence: float | None = None

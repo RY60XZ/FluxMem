@@ -15,5 +15,11 @@ dependencies = [
     "pgvector>=0.4,<1.0",
 ]
 
+[project.optional-dependencies]
+llm-openai = ["openai>=1.66,<3.0"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"fluxmem.application.llm.prompts" = ["*.txt"]

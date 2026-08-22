@@ -8,9 +8,12 @@ from uuid import UUID, uuid4
 from fluxmem.application.ports.embeddings import EmbeddingProviderError
 from fluxmem.application.read.retrieval import (
     HybridRetrievalSettings,
+    RetrievalForAdding,
     RetrievalForAnswering,
 )
-from fluxmem.domain.info_pack import MessagePack
+from fluxmem.domain.info_pack import MessagePack, RetrievedMemory
+from fluxmem.domain.llm import ProposedMemory
+from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import EMBEDDING_DIMENSIONS, Embedding, QueryType
 
@@ -48,10 +51,11 @@ class FakeSessions:
 class FakeMemories:
     def __init__(self) -> None:
         self.query = None
+        self.results = ()
 
     def search(self, *, query):
         self.query = query
-        return ()
+        return self.results
 
 
 class FakeRetrievals:
@@ -115,8 +119,10 @@ class HybridRetrievalApplicationTests(unittest.TestCase):
             limit=2,
         )
 
-        self.assertEqual(result.query_id, self.query_id)
-        self.assertEqual(result.memories, ())
+        self.assertEqual(result.seeds.query_id, self.query_id)
+        self.assertEqual(result.seeds.memories, ())
+        self.assertEqual(result.expanded.query_id, self.query_id)
+        self.assertEqual(result.expanded.memories, ())
         self.assertTrue(self.uow.committed)
         self.assertEqual(provider.texts, ["r\nquestion"])
         self.assertEqual(self.uow.memories.query.text, "r\nquestion")
@@ -150,6 +156,53 @@ class HybridRetrievalApplicationTests(unittest.TestCase):
         self.assertIsNone(self.uow.memories.query.embedding)
         self.assertEqual(self.uow.memories.query.text, "volcano")
         self.assertTrue(self.uow.committed)
+
+    def test_adding_retrieval_queries_one_atomic_candidate(self) -> None:
+        provider = FakeEmbeddingProvider()
+        existing = Memory(
+            memory_id=uuid4(),
+            message_id=uuid4(),
+            content="The user prefers green tea",
+            created_at=self.now,
+        )
+        self.uow.memories.results = (
+            RetrievedMemory(
+                memory=existing,
+                rank=1,
+                score=1.0,
+                retention=0.9,
+                retrieval_reasons=("lexical",),
+            ),
+        )
+        service = RetrievalForAdding(
+            unit_of_work_factory=lambda: self.uow,
+            embedding_provider=provider,
+            clock=FixedClock(self.now),
+            query_id_factory=lambda: self.query_id,
+        )
+        candidate = ProposedMemory(
+            content="  The user prefers oolong tea  ",
+            source_message_id=uuid4(),
+            session_applicability=None,
+        )
+
+        result = service.execute(
+            user_id=self.user_id,
+            session_id=self.session_id,
+            candidate=candidate,
+        )
+
+        self.assertEqual(provider.texts, ["The user prefers oolong tea"])
+        self.assertEqual(
+            self.uow.memories.query.text,
+            "The user prefers oolong tea",
+        )
+        self.assertEqual(result.query_id, self.query_id)
+        self.assertEqual(len(result.memories), 1)
+        self.assertEqual(
+            self.uow.retrievals.added["query_type"],
+            QueryType.ADDING,
+        )
 
     def _message(self, content: str) -> Message:
         return Message(

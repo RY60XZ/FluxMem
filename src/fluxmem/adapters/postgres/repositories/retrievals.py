@@ -86,7 +86,7 @@ class SqlAlchemyRetrievalRepository:
                 RetrievalCandidateRow.memory_id,
             )
         )
-        if query_type is QueryType.ADDING:
+        if query_type in (QueryType.ANSWERING, QueryType.ADDING):
             statement = statement.join(
                 MemoryLifecycleRow,
                 MemoryLifecycleRow.memory_id == RetrievalCandidateRow.memory_id,

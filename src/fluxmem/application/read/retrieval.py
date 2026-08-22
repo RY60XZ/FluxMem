@@ -15,7 +15,13 @@ from fluxmem.application.ports.embeddings import (
 )
 from fluxmem.application.ports.unit_of_work import UnitOfWork
 from fluxmem.domain.conflict import ConflictNeighbor, MemoryConflict
-from fluxmem.domain.info_pack import MemoryPack, MessagePack, RetrievedMemory
+from fluxmem.domain.info_pack import (
+    MemoryPack,
+    MessagePack,
+    RetrievedMemory,
+    TurnMemoryPacks,
+)
+from fluxmem.domain.llm import ProposedMemory
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
@@ -260,18 +266,16 @@ class _HybridRetrieval:
         self,
         *,
         query_type: QueryType,
-        message_pack: MessagePack,
+        user_id: UUID,
+        session_id: UUID,
+        query_text: str,
         limit: int,
-    ) -> MemoryPack:
+    ) -> TurnMemoryPacks:
         if limit < 1:
             raise ValueError("retrieval limit must be positive")
         if limit > self._settings.maximum_candidate_limit:
             raise ValueError("retrieval limit exceeds the configured maximum")
 
-        query_text = _bounded_query_text(
-            message_pack=message_pack,
-            settings=self._settings,
-        )
         query_embedding = None
         if self._embedding_provider is not None and query_text:
             try:
@@ -289,8 +293,8 @@ class _HybridRetrieval:
         retrieved_at = self._clock.now()
         query_id = self._query_id_factory()
         search_query = MemorySearchQuery(
-            user_id=message_pack.user_id,
-            session_id=message_pack.session_id,
+            user_id=user_id,
+            session_id=session_id,
             text=query_text,
             embedding=query_embedding,
             as_of=retrieved_at,
@@ -304,8 +308,8 @@ class _HybridRetrieval:
 
         with self._unit_of_work_factory() as unit_of_work:
             if not unit_of_work.sessions.is_owned_by(
-                session_id=message_pack.session_id,
-                user_id=message_pack.user_id,
+                session_id=session_id,
+                user_id=user_id,
             ):
                 raise SessionNotFoundError(
                     "retrieval session does not belong to the requested user"
@@ -314,7 +318,8 @@ class _HybridRetrieval:
             seed_memories = unit_of_work.memories.search(query=search_query)
             conflict_neighbors = ()
             if (
-                seed_memories
+                query_type is QueryType.ANSWERING
+                and seed_memories
                 and self._settings.maximum_conflicts_per_seed > 0
                 and self._settings.maximum_conflict_expansions > 0
             ):
@@ -322,8 +327,8 @@ class _HybridRetrieval:
                     seed_memory_ids=tuple(
                         memory.memory.memory_id for memory in seed_memories
                     ),
-                    user_id=message_pack.user_id,
-                    session_id=message_pack.session_id,
+                    user_id=user_id,
+                    session_id=session_id,
                     as_of=retrieved_at,
                 )
             expansion = _expand_conflict_neighbors(
@@ -333,25 +338,33 @@ class _HybridRetrieval:
             )
             unit_of_work.retrievals.add(
                 query_id=query_id,
-                session_id=message_pack.session_id,
+                session_id=session_id,
                 query_type=query_type,
                 candidates=expansion.memories,
                 created_at=retrieved_at,
             )
             unit_of_work.commit()
 
-        return MemoryPack(
-            query_id=query_id,
-            user_id=message_pack.user_id,
-            session_id=message_pack.session_id,
-            memories=expansion.memories,
-            conflicts=expansion.conflicts,
-            conflict_expansion_truncated=expansion.truncated,
+        return TurnMemoryPacks(
+            seeds=MemoryPack(
+                query_id=query_id,
+                user_id=user_id,
+                session_id=session_id,
+                memories=seed_memories,
+            ),
+            expanded=MemoryPack(
+                query_id=query_id,
+                user_id=user_id,
+                session_id=session_id,
+                memories=expansion.memories,
+                conflicts=expansion.conflicts,
+                conflict_expansion_truncated=expansion.truncated,
+            ),
         )
 
 
 class RetrievalForAnswering(_HybridRetrieval):
-    """Retrieve memories relevant before the answering model is invoked."""
+    """Build seed and expanded views from one pre-answer turn retrieval."""
 
     def execute(
         self,
@@ -359,7 +372,7 @@ class RetrievalForAnswering(_HybridRetrieval):
         message: Message,
         session_history: MessagePack,
         limit: int = 10,
-    ) -> MemoryPack:
+    ) -> TurnMemoryPacks:
         _validate_context_message(message=message, history=session_history)
         retrieval_messages = _extend_message_pack(
             history=session_history,
@@ -367,30 +380,37 @@ class RetrievalForAnswering(_HybridRetrieval):
         )
         return self._retrieve(
             query_type=QueryType.ANSWERING,
-            message_pack=retrieval_messages,
+            user_id=retrieval_messages.user_id,
+            session_id=retrieval_messages.session_id,
+            query_text=_bounded_query_text(
+                message_pack=retrieval_messages,
+                settings=self._settings,
+            ),
             limit=limit,
         )
 
 
 class RetrievalForAdding(_HybridRetrieval):
-    """Retrieve write-time context after the answering model has responded."""
+    """Retrieve one write-time context pack for one atomic candidate."""
 
     def execute(
         self,
         *,
-        message: Message,
-        session_history: MessagePack,
-        model_response: Message,
+        user_id: UUID,
+        session_id: UUID,
+        candidate: ProposedMemory,
         limit: int = 10,
     ) -> MemoryPack:
-        _validate_context_message(message=message, history=session_history)
-        _validate_context_message(message=model_response, history=session_history)
-        retrieval_messages = _extend_message_pack(
-            history=session_history,
-            messages=(message, model_response),
-        )
+        if candidate.session_applicability not in (None, session_id):
+            raise InvalidRetrievalContextError(
+                "adding candidate is limited to a different session"
+            )
         return self._retrieve(
             query_type=QueryType.ADDING,
-            message_pack=retrieval_messages,
+            user_id=user_id,
+            session_id=session_id,
+            query_text=candidate.content.strip()[
+                : self._settings.max_query_characters
+            ],
             limit=limit,
-        )
+        ).seeds

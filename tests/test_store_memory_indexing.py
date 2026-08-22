@@ -8,6 +8,7 @@ from fluxmem.domain.conflict import ConflictProposal
 from fluxmem.application.ports.embeddings import EmbeddingProviderError
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.domain.memory import Memory
+from fluxmem.domain.lifecycle import DecisionSource, LifecycleDecision, Tier
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
@@ -75,18 +76,44 @@ class FakeUnitOfWork:
         self.conflicts = RecordingRepository()
         self.retrievals = FakeRetrievals(candidate_ids)
         self.committed = False
+        self.active = False
 
     def __enter__(self):
+        self.active = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        pass
+        self.active = False
 
     def flush(self) -> None:
         pass
 
     def commit(self) -> None:
         self.committed = True
+
+
+class InspectingLifecycleEvaluator:
+    def __init__(self, unit_of_work: FakeUnitOfWork) -> None:
+        self.unit_of_work = unit_of_work
+        self.called_while_transaction_open = None
+
+    def evaluate(self, **values) -> LifecycleDecision:
+        del values
+        self.called_while_transaction_open = self.unit_of_work.active
+        return LifecycleDecision(
+            importance=0.7,
+            tier=Tier.SHORT_TERM,
+            initial_retention=0.7,
+            reason_codes=("test",),
+            confidence=0.8,
+            decision_source=DecisionSource.LLM_PRIMARY,
+        )
+
+
+class FailingLifecycleEvaluator:
+    def evaluate(self, **values):
+        del values
+        raise RuntimeError("provider unavailable")
 
 
 class StoreMemoryIndexingTests(unittest.TestCase):
@@ -139,7 +166,7 @@ class StoreMemoryIndexingTests(unittest.TestCase):
         self.assertIsNone(index.embedding)
         self.assertTrue(unit_of_work.committed)
 
-    def test_only_adding_query_candidates_become_conflict_edges(self) -> None:
+    def test_only_turn_retrieval_candidates_become_conflict_edges(self) -> None:
         eligible_id = uuid4()
         fabricated_id = uuid4()
         query_id = uuid4()
@@ -178,8 +205,38 @@ class StoreMemoryIndexingTests(unittest.TestCase):
                 "query_id": query_id,
                 "user_id": self.user_id,
                 "session_id": self.session_id,
-                "query_type": QueryType.ADDING,
+                "query_type": QueryType.ANSWERING,
             },
+        )
+
+    def test_lifecycle_provider_runs_outside_database_context(self) -> None:
+        unit_of_work = FakeUnitOfWork(self.message)
+        evaluator = InspectingLifecycleEvaluator(unit_of_work)
+        service = StoreMemory(
+            unit_of_work_factory=lambda: unit_of_work,
+            lifecycle_evaluator=evaluator,
+            clock=FixedClock(self.now),
+        )
+
+        service.execute(user_id=self.user_id, memory=self.memory)
+
+        self.assertFalse(evaluator.called_while_transaction_open)
+        self.assertTrue(unit_of_work.committed)
+
+    def test_lifecycle_provider_failure_uses_rule_fallback(self) -> None:
+        unit_of_work = FakeUnitOfWork(self.message)
+        service = StoreMemory(
+            unit_of_work_factory=lambda: unit_of_work,
+            lifecycle_evaluator=FailingLifecycleEvaluator(),
+            clock=FixedClock(self.now),
+        )
+
+        service.execute(user_id=self.user_id, memory=self.memory)
+
+        lifecycle = unit_of_work.lifecycles.added[0]["lifecycle"]
+        self.assertIs(
+            lifecycle.decision_source,
+            DecisionSource.RULES_FALLBACK,
         )
 
 

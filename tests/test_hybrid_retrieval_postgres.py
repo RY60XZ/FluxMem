@@ -137,9 +137,12 @@ class HybridRetrievalPostgresTests(unittest.TestCase):
             limit=3,
         )
 
-        self.assertEqual(result.memories[0].memory.memory_id, self.hybrid_id)
+        self.assertEqual(
+            result.seeds.memories[0].memory.memory_id,
+            self.hybrid_id,
+        )
         by_id = {
-            item.memory.memory_id: item for item in result.memories
+            item.memory.memory_id: item for item in result.seeds.memories
         }
         self.assertEqual(
             set(by_id),
@@ -162,10 +165,11 @@ class HybridRetrievalPostgresTests(unittest.TestCase):
         self.assertIn("lexical", by_id[self.hybrid_id].retrieval_reasons)
 
         with self.session_factory() as session:
-            query = session.get(RetrievalQueryRow, result.query_id)
+            query = session.get(RetrievalQueryRow, result.expanded.query_id)
             candidates = session.scalars(
                 select(RetrievalCandidateRow).where(
-                    RetrievalCandidateRow.query_id == result.query_id
+                    RetrievalCandidateRow.query_id
+                    == result.expanded.query_id
                 )
             ).all()
         self.assertIsNotNone(query)
@@ -213,18 +217,23 @@ class HybridRetrievalPostgresTests(unittest.TestCase):
             limit=1,
         )
 
-        returned_ids = tuple(
-            item.memory.memory_id for item in result.memories
+        seed_ids = tuple(
+            item.memory.memory_id for item in result.seeds.memories
         )
+        returned_ids = tuple(
+            item.memory.memory_id for item in result.expanded.memories
+        )
+        self.assertEqual(seed_ids, (self.hybrid_id,))
         self.assertEqual(returned_ids, (self.hybrid_id, neighbor_id))
         self.assertNotIn(second_hop_id, returned_ids)
-        self.assertEqual(len(result.conflicts), 1)
-        self.assertFalse(result.conflict_expansion_truncated)
+        self.assertEqual(len(result.expanded.conflicts), 1)
+        self.assertFalse(result.expanded.conflict_expansion_truncated)
         with self.session_factory() as session:
             candidate_ids = set(
                 session.scalars(
                     select(RetrievalCandidateRow.memory_id).where(
-                        RetrievalCandidateRow.query_id == result.query_id
+                        RetrievalCandidateRow.query_id
+                        == result.expanded.query_id
                     )
                 )
             )

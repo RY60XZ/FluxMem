@@ -1,0 +1,6 @@
+The previous JSON result failed application validation.
+
+Validation error: {validation_error}
+
+Return a corrected result only. Follow the supplied JSON schema exactly.
+If validation says a reference is absent from the prompt, select a semantically correct supplied reference or omit that optional selection. Never invent a replacement reference.
