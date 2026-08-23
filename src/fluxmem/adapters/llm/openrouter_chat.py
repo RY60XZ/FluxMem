@@ -155,6 +155,8 @@ class OpenRouterChatCompletionsProvider:
                 else None
             ),
             usage=_chat_token_usage(response),
+            request_instructions=system_instructions,
+            request_input_text=input_text,
         )
 
     def stream_text(

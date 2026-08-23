@@ -40,6 +40,9 @@ class SqlAlchemyRetrievalRepository:
                 created_at=created_at,
             )
         )
+        # The row mappings intentionally have no ORM relationship. Flush the
+        # parent explicitly so PostgreSQL always sees it before candidate FKs.
+        self._session.flush()
         self._session.add_all(
             RetrievalCandidateRow(
                 query_id=query_id,

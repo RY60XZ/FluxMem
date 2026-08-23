@@ -114,6 +114,8 @@ class OpenAIResponsesProvider:
                 str(response.id) if getattr(response, "id", None) else None
             ),
             usage=_model_token_usage(response),
+            request_instructions=instructions,
+            request_input_text=input_text,
         )
 
     def stream_text(

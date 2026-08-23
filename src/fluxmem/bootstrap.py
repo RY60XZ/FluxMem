@@ -28,6 +28,7 @@ from fluxmem.application.ports.lifecycle import LifecycleEvaluator
 from fluxmem.application.ports.embeddings import EmbeddingProvider
 from fluxmem.application.write.reinforcement import ReinforceMemory
 from fluxmem.application.write.reindex_memories import ReindexPendingMemories
+from fluxmem.application.write.create_session import CreateSession
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.application.write.store_message import StoreMessage
 
@@ -37,6 +38,7 @@ class FluxMemServices:
     """Fully wired application services that share one database engine."""
 
     engine: Engine
+    create_session: CreateSession
     get_session_history: GetSessionHistory
     retrieval_for_answering: RetrievalForAnswering
     retrieval_for_adding: RetrievalForAdding
@@ -78,6 +80,7 @@ def bootstrap(
     get_session_history = GetSessionHistory(
         unit_of_work_factory=unit_of_work_factory
     )
+    create_session = CreateSession(unit_of_work_factory=unit_of_work_factory)
     retrieval_for_answering = RetrievalForAnswering(
         unit_of_work_factory=unit_of_work_factory,
         embedding_provider=embedding_provider,
@@ -146,6 +149,7 @@ def bootstrap(
 
     return FluxMemServices(
         engine=engine,
+        create_session=create_session,
         get_session_history=get_session_history,
         retrieval_for_answering=retrieval_for_answering,
         retrieval_for_adding=retrieval_for_adding,

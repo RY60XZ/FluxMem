@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from fluxmem.adapters.llm import OpenAIResponsesProvider
+from fluxmem.application.diagnostics import TurnDiagnosticsCollector
 from fluxmem.application.llm import (
     LLMAnswerGenerator,
     LLMContextSettings,
@@ -74,7 +75,7 @@ class CharacterTokenCounter:
 class FailingStructuredProvider:
     def generate(self, **values) -> StructuredModelResponse:
         del values
-        raise ModelTimeoutError("deadline")
+        raise ModelTimeoutError("deadline") from RuntimeError("upstream 429")
 
 
 class LLMTaskTests(unittest.TestCase):
@@ -164,9 +165,9 @@ class LLMTaskTests(unittest.TestCase):
             with self.subTest(example_name=name):
                 prompt = load_prompt(name)
                 self.assertIn("Example", prompt)
-                self.assertIn(
-                    "Example — exact model input:",
-                    prompt,
+                self.assertTrue(
+                    "Example Input:" in prompt
+                    or "Example — exact model input:" in prompt
                 )
 
         repaired = render_repair_prompt(validation_error="bad memory id")
@@ -197,8 +198,10 @@ class LLMTaskTests(unittest.TestCase):
                     set(json.loads(line)),
                     {"message_ref", "role", "content", "created_at"},
                 )
+            memory_header, memory_records = memory_context.split("\n", maxsplit=1)
+            self.assertEqual(memory_header, "Memories:")
             self._assert_memory_records_shape(
-                memory_context,
+                memory_records,
                 include_reference=False,
             )
 
@@ -226,8 +229,10 @@ class LLMTaskTests(unittest.TestCase):
                     set(json.loads(line)),
                     {"message_ref", "role", "content", "created_at"},
                 )
+            memory_header, memory_records = memory_context.split("\n", maxsplit=1)
+            self.assertEqual(memory_header, "MEMORIES:")
             self._assert_memory_records_shape(
-                memory_context,
+                memory_records,
                 include_reference=False,
             )
 
@@ -424,6 +429,7 @@ class LLMTaskTests(unittest.TestCase):
             "PRIVATE USER INFORMATION",
             provider.calls[0]["input_text"],
         )
+        self.assertIn("\nMemories:\n", provider.calls[0]["input_text"])
         self.assertNotIn('"memory_ref"', provider.calls[0]["input_text"])
         self.assertEqual(
             answer_stream.context_memory_ids,
@@ -562,6 +568,7 @@ class LLMTaskTests(unittest.TestCase):
             provider.calls[0]["input_text"],
         )
         self.assertIn(self.seed.content, provider.calls[0]["input_text"])
+        self.assertIn("\n\nMEMORIES:\n", provider.calls[0]["input_text"])
         self.assertNotIn('"memory_ref"', provider.calls[0]["input_text"])
 
     def test_structured_repairs_report_both_model_attempts(self) -> None:
@@ -627,6 +634,7 @@ class LLMTaskTests(unittest.TestCase):
 
     def test_failed_structured_call_is_reported_with_unknown_usage(self) -> None:
         collector = ModelUsageCollector()
+        diagnostics = TurnDiagnosticsCollector()
         extractor = LLMMemoryExtractor(
             provider=FailingStructuredProvider(),
             settings=self.task_settings,
@@ -638,6 +646,7 @@ class LLMTaskTests(unittest.TestCase):
                 session_history=self.history,
                 memory_pack=self.pack,
                 usage_recorder=collector,
+                diagnostics_recorder=diagnostics,
             )
 
         report = collector.snapshot()
@@ -646,6 +655,9 @@ class LLMTaskTests(unittest.TestCase):
         self.assertIsNone(report.calls[0].token_usage)
         self.assertIsNone(report.token_totals)
         self.assertFalse(report.usage_complete)
+        diagnostic_call = diagnostics.snapshot().model_calls[0]
+        self.assertIn("ModelTimeoutError: deadline", diagnostic_call.error)
+        self.assertIn("RuntimeError: upstream 429", diagnostic_call.error)
 
     def test_reconciliation_rejects_out_of_pack_ids_before_repair(self) -> None:
         provider = QueuedProvider(
@@ -855,10 +867,15 @@ class LLMTaskTests(unittest.TestCase):
 
     @staticmethod
     def _prompt_example_inputs(name: str) -> tuple[str, ...]:
-        marker = "Example — exact model input:\n"
+        prompt = load_prompt(name)
+        marker = (
+            "Example Input:\n"
+            if "Example Input:\n" in prompt
+            else "Example — exact model input:\n"
+        )
         return tuple(
             remainder.split("\n\nValid output:", maxsplit=1)[0]
-            for remainder in load_prompt(name).split(marker)[1:]
+            for remainder in prompt.split(marker)[1:]
         )
 
     @staticmethod

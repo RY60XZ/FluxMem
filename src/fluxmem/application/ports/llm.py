@@ -8,6 +8,7 @@ from fluxmem.domain.info_pack import MemoryPack, MessagePack
 from fluxmem.domain.llm import (
     GeneratedAnswer,
     GeneratedAnswerStream,
+    ModelCallDiagnostics,
     ModelCallUsage,
     ModelTokenUsage,
     ProposedMemory,
@@ -34,6 +35,8 @@ class StructuredModelResponse:
     model: str
     response_id: str | None = None
     usage: ModelTokenUsage | None = None
+    request_instructions: str | None = None
+    request_input_text: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +68,10 @@ class StreamingModelResponse(Iterable[str], Protocol):
 
 class ModelUsageRecorder(Protocol):
     def record(self, call: ModelCallUsage) -> None: ...
+
+
+class ModelDiagnosticsRecorder(Protocol):
+    def record(self, call: ModelCallDiagnostics) -> None: ...
 
 
 class StructuredModelProvider(Protocol):
@@ -111,6 +118,7 @@ class AnswerGenerator(Protocol):
         session_history: MessagePack,
         memory_pack: MemoryPack,
         usage_recorder: ModelUsageRecorder | None = None,
+        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
     ) -> GeneratedAnswerStream: ...
 
     def generate(
@@ -120,6 +128,7 @@ class AnswerGenerator(Protocol):
         session_history: MessagePack,
         memory_pack: MemoryPack,
         usage_recorder: ModelUsageRecorder | None = None,
+        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
     ) -> GeneratedAnswer: ...
 
 
@@ -131,6 +140,7 @@ class MemoryExtractor(Protocol):
         session_history: MessagePack,
         memory_pack: MemoryPack,
         usage_recorder: ModelUsageRecorder | None = None,
+        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
     ) -> tuple[ProposedMemory, ...]: ...
 
 
@@ -143,4 +153,5 @@ class MemoryReconciler(Protocol):
         evidence_messages: tuple[Message, ...],
         session_history: MessagePack,
         usage_recorder: ModelUsageRecorder | None = None,
+        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
     ) -> tuple[ReconciliationDecision, ...]: ...

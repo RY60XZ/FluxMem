@@ -8,7 +8,7 @@ from fluxmem.domain.conflict import ConflictNeighbor, MemoryConflict
 from fluxmem.domain.info_pack import MemoryUsage, RetrievedMemory
 from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
-from fluxmem.domain.message import Message
+from fluxmem.domain.message import Message, Session
 from fluxmem.domain.retrieval import (
     Embedding,
     MemoryIndex,
@@ -32,6 +32,10 @@ class MessageRepository(Protocol):
 
 
 class SessionRepository(Protocol):
+    def ensure_user(self, *, user_id: UUID) -> None: ...
+
+    def add(self, *, session: Session) -> None: ...
+
     def is_owned_by(self, *, session_id: UUID, user_id: UUID) -> bool: ...
 
 

@@ -259,6 +259,28 @@ usage only after a response, so preflight selection uses a portable UTF-8
 estimate and the reported `input_tokens` remains authoritative. Extraction and
 reconciliation retain their separate six-message/character budgets.
 
+## Live workflow inspection
+
+`ProcessConversationTurn.execute_text()` creates user-message IDs and timestamps
+for callers. Pass `diagnostics=True` to retain an opt-in trace containing the
+retrieval seed and conflict-expanded packs, exact model instructions and input,
+canonical IDs actually included in each request, raw and validated model
+outputs, repair attempts, token usage, feedback, and persistence outcomes.
+Diagnostics contain private conversation data and are disabled by default.
+
+After starting and migrating PostgreSQL, run one six-round LoCoMo-derived case
+through real OpenRouter:
+
+```bash
+.venv/bin/python scripts/live_workflow_test.py
+```
+
+The script creates a fresh user and session, replays selected evidence and
+distractor turns from one published case, asks its reference question, and
+writes the complete per-round trace under the ignored `workflow-traces/`
+directory. It is an integration smoke test rather than a canonical score over
+the full LoCoMo conversation.
+
 The chosen Gemma endpoint supports JSON output but does not advertise strict
 JSON-Schema enforcement. The OpenRouter adapter therefore supplies the schema
 to the model in compact form, requests JSON-object mode, validates the result

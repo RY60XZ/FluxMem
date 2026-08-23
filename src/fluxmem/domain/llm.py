@@ -4,10 +4,11 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import Any, Mapping
 from uuid import UUID
 
 from fluxmem.domain.conflict import ConflictProposal
-from fluxmem.domain.info_pack import MemoryPack
+from fluxmem.domain.info_pack import MemoryPack, TurnMemoryPacks
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
@@ -247,6 +248,44 @@ class MemoryWriteOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class ModelCallDiagnostics:
+    """Exact opt-in model request, raw response, and validated result."""
+
+    task: LLMTaskKind
+    model: str
+    attempt: int
+    instructions: str
+    input_text: str
+    schema_name: str | None
+    schema: Mapping[str, Any] | None
+    supplied_memory_ids: tuple[UUID, ...]
+    supplied_message_ids: tuple[UUID, ...]
+    output_text: str | None
+    validated_output: object | None
+    response_id: str | None
+    token_usage: ModelTokenUsage | None
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationTurnDiagnostics:
+    """Immutable snapshot of one opt-in workflow trace."""
+
+    retrieval: TurnMemoryPacks | None = None
+    answer_context_memory_ids: tuple[UUID, ...] = ()
+    model_calls: tuple[ModelCallDiagnostics, ...] = ()
+    feedback_applied: bool | None = None
+    memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
+    post_answer_errors: tuple[str, ...] = ()
+    complete: bool = False
+
+    def calls_for_task(
+        self, task: LLMTaskKind
+    ) -> tuple[ModelCallDiagnostics, ...]:
+        return tuple(call for call in self.model_calls if call.task is task)
+
+
+@dataclass(frozen=True, slots=True)
 class ConversationTurnResult:
     """Observable result of the critical answer path and post-answer work."""
 
@@ -256,6 +295,7 @@ class ConversationTurnResult:
     memory_outcomes: tuple[MemoryWriteOutcome, ...]
     post_answer_errors: tuple[str, ...] = ()
     llm_usage: LLMUsageReport = LLMUsageReport()
+    diagnostics: ConversationTurnDiagnostics | None = None
 
 
 def proposed_memory_to_memory(

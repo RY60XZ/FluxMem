@@ -5,6 +5,7 @@ from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from threading import Lock
 from uuid import UUID, uuid4
 
+from fluxmem.application.diagnostics import TurnDiagnosticsCollector
 from fluxmem.application.llm.usage import ModelUsageCollector
 from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.llm import (
@@ -25,6 +26,7 @@ from fluxmem.domain.info_pack import (
     UsageType,
 )
 from fluxmem.domain.llm import (
+    ConversationTurnDiagnostics,
     ConversationTurnResult,
     LLMUsageReport,
     MemoryWriteOutcome,
@@ -48,10 +50,12 @@ class ConversationTurnStream(Iterator[str]):
             [str], tuple[Message, Future[ConversationTurnResult]]
         ],
         usage_collector: ModelUsageCollector,
+        diagnostics_collector: TurnDiagnosticsCollector | None,
     ) -> None:
         self._chunks = iter(chunks)
         self._finalize = finalize
         self._usage_collector = usage_collector
+        self._diagnostics_collector = diagnostics_collector
         self._parts: list[str] = []
         self._finished = False
         self._answer: Message | None = None
@@ -118,6 +122,12 @@ class ConversationTurnStream(Iterator[str]):
 
         return self._usage_collector.snapshot()
 
+    @property
+    def diagnostics(self) -> ConversationTurnDiagnostics | None:
+        if self._diagnostics_collector is None:
+            return None
+        return self._diagnostics_collector.snapshot()
+
 
 class ProcessConversationTurn:
     """Coordinate answering first, then bounded post-answer memory writes."""
@@ -176,6 +186,7 @@ class ProcessConversationTurn:
         user_id: UUID,
         message: Message,
         agent_id: str | None = None,
+        diagnostics: bool = False,
     ) -> ConversationTurnStream:
         """Return the answer as a stream; defer memory work until it ends."""
 
@@ -195,6 +206,9 @@ class ProcessConversationTurn:
             session_history=history,
             limit=self._answering_limit,
         )
+        diagnostics_collector = TurnDiagnosticsCollector() if diagnostics else None
+        if diagnostics_collector is not None:
+            diagnostics_collector.record_retrieval(turn_memory_packs)
         answering_pack = turn_memory_packs.expanded
         usage_collector = ModelUsageCollector()
         generated = self._answer_generator.stream(
@@ -202,11 +216,17 @@ class ProcessConversationTurn:
             session_history=history,
             memory_pack=answering_pack,
             usage_recorder=usage_collector,
+            diagnostics_recorder=diagnostics_collector,
         )
+        if diagnostics_collector is not None:
+            diagnostics_collector.record_answer_context(
+                generated.context_memory_ids
+            )
 
         return ConversationTurnStream(
             chunks=generated,
             usage_collector=usage_collector,
+            diagnostics_collector=diagnostics_collector,
             finalize=lambda content: self._finish_answer(
                 user_id=user_id,
                 message=message,
@@ -217,7 +237,35 @@ class ProcessConversationTurn:
                 content=content,
                 context_memory_ids=generated.context_memory_ids,
                 usage_collector=usage_collector,
+                diagnostics_collector=diagnostics_collector,
             ),
+        )
+
+    def execute_text(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID,
+        content: str,
+        agent_id: str | None = None,
+        diagnostics: bool = False,
+    ) -> ConversationTurnStream:
+        """Create user-message metadata and begin one streamed turn."""
+
+        if not content.strip():
+            raise ValueError("conversation turn content cannot be blank")
+        return self.execute(
+            user_id=user_id,
+            message=Message(
+                message_id=self._id_factory(),
+                session_id=session_id,
+                role="user",
+                agent_id=None,
+                content=content,
+                created_at=self._clock.now(),
+            ),
+            agent_id=agent_id,
+            diagnostics=diagnostics,
         )
 
     def execute_and_wait(
@@ -227,6 +275,7 @@ class ProcessConversationTurn:
         message: Message,
         agent_id: str | None = None,
         timeout: float | None = None,
+        diagnostics: bool = False,
     ) -> ConversationTurnResult:
         """Explicit compatibility path that collects and completes one turn."""
 
@@ -234,6 +283,7 @@ class ProcessConversationTurn:
             user_id=user_id,
             message=message,
             agent_id=agent_id,
+            diagnostics=diagnostics,
         )
         for _ in stream:
             pass
@@ -261,6 +311,7 @@ class ProcessConversationTurn:
         content: str,
         context_memory_ids: tuple[UUID, ...],
         usage_collector: ModelUsageCollector,
+        diagnostics_collector: TurnDiagnosticsCollector | None,
     ) -> tuple[Message, Future[ConversationTurnResult]]:
         answer = Message(
             message_id=self._id_factory(),
@@ -282,6 +333,7 @@ class ProcessConversationTurn:
             answering_pack=answering_pack,
             context_memory_ids=context_memory_ids,
             usage_collector=usage_collector,
+            diagnostics_collector=diagnostics_collector,
         )
         return answer, future
 
@@ -296,6 +348,7 @@ class ProcessConversationTurn:
         answering_pack: MemoryPack,
         context_memory_ids: tuple[UUID, ...],
         usage_collector: ModelUsageCollector,
+        diagnostics_collector: TurnDiagnosticsCollector | None,
     ) -> ConversationTurnResult:
         errors: list[str] = []
         feedback_applied = self._apply_feedback(
@@ -313,6 +366,7 @@ class ProcessConversationTurn:
                     session_history=history,
                     memory_pack=extraction_pack,
                     usage_recorder=usage_collector,
+                    diagnostics_recorder=diagnostics_collector,
                 )
             except Exception as error:
                 errors.append(_error_text("extraction", error))
@@ -330,7 +384,16 @@ class ProcessConversationTurn:
             memory_pack=answering_pack,
             errors=errors,
             usage_collector=usage_collector,
+            diagnostics_collector=diagnostics_collector,
         )
+        diagnostic_snapshot = None
+        if diagnostics_collector is not None:
+            diagnostics_collector.complete(
+                feedback_applied=feedback_applied,
+                memory_outcomes=outcomes,
+                post_answer_errors=tuple(errors),
+            )
+            diagnostic_snapshot = diagnostics_collector.snapshot()
         return ConversationTurnResult(
             answer=answer,
             answering_memory_pack=answering_pack,
@@ -338,6 +401,7 @@ class ProcessConversationTurn:
             memory_outcomes=outcomes,
             post_answer_errors=tuple(errors),
             llm_usage=usage_collector.snapshot(),
+            diagnostics=diagnostic_snapshot,
         )
 
     def _apply_feedback(
@@ -393,6 +457,7 @@ class ProcessConversationTurn:
         memory_pack: MemoryPack,
         errors: list[str],
         usage_collector: ModelUsageCollector,
+        diagnostics_collector: TurnDiagnosticsCollector | None,
     ) -> tuple[MemoryWriteOutcome, ...]:
         if not candidates:
             return ()
@@ -426,6 +491,7 @@ class ProcessConversationTurn:
                     evidence_messages=evidence_messages,
                     session_history=session_history,
                     usage_recorder=usage_collector,
+                    diagnostics_recorder=diagnostics_collector,
                 )
                 if len(decisions) != len(valid_candidates):
                     raise ValueError(
@@ -456,6 +522,7 @@ class ProcessConversationTurn:
                 decision=decision,
                 memory_pack=memory_pack,
                 usage_collector=usage_collector,
+                diagnostics_collector=diagnostics_collector,
             )
         return tuple(
             outcomes_by_index[index] for index in range(len(candidates))
@@ -482,6 +549,7 @@ class ProcessConversationTurn:
         decision: ReconciliationDecision,
         memory_pack: MemoryPack,
         usage_collector: ModelUsageCollector,
+        diagnostics_collector: TurnDiagnosticsCollector | None,
     ) -> MemoryWriteOutcome:
         try:
             allowed_ids = {
@@ -532,6 +600,7 @@ class ProcessConversationTurn:
                     else ()
                 ),
                 usage_recorder=usage_collector,
+                diagnostics_recorder=diagnostics_collector,
             )
             return MemoryWriteOutcome(
                 candidate=candidate,

@@ -15,6 +15,7 @@ from fluxmem.domain.info_pack import (
     UsageType,
 )
 from fluxmem.domain.llm import (
+    ConversationTurnDiagnostics,
     ConversationTurnResult,
     GeneratedAnswer,
     GeneratedAnswerStream,
@@ -22,6 +23,7 @@ from fluxmem.domain.llm import (
     LLMUsageReport,
     MemoryWriteOutcome,
     MemoryWriteStatus,
+    ModelCallDiagnostics,
     ModelCallUsage,
     ModelTokenUsage,
     ProposedMemory,
@@ -70,6 +72,7 @@ __all__ = (
     "MemoryPack",
     "MemorySearchQuery",
     "MemoryUsage",
+    "ConversationTurnDiagnostics",
     "ConversationTurnResult",
     "GeneratedAnswer",
     "GeneratedAnswerStream",
@@ -77,6 +80,7 @@ __all__ = (
     "LLMUsageReport",
     "MemoryWriteOutcome",
     "MemoryWriteStatus",
+    "ModelCallDiagnostics",
     "ModelCallUsage",
     "ModelTokenUsage",
     "ProposedMemory",
