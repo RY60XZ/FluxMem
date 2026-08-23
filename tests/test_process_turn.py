@@ -17,7 +17,10 @@ from fluxmem.domain.info_pack import (
 from fluxmem.domain.llm import (
     GeneratedAnswer,
     GeneratedAnswerStream,
+    LLMTaskKind,
     MemoryWriteStatus,
+    ModelCallUsage,
+    ModelTokenUsage,
     ProposedMemory,
     ReconciliationAction,
     ReconciliationDecision,
@@ -75,19 +78,37 @@ class FakeAnsweringRetrieval:
 
 
 class FakeAnswerGenerator:
-    def __init__(self, events: list[str], generated: GeneratedAnswer) -> None:
+    def __init__(
+        self,
+        events: list[str],
+        generated: GeneratedAnswer,
+        token_usage: ModelTokenUsage | None = None,
+    ) -> None:
         self.events = events
         self.generated = generated
+        self.token_usage = token_usage
 
     def stream(self, **values) -> GeneratedAnswerStream:
-        del values
         self.events.append("answer_generation")
         midpoint = max(1, len(self.generated.content) // 2)
+
+        def chunks():
+            yield self.generated.content[:midpoint]
+            yield self.generated.content[midpoint:]
+            recorder = values.get("usage_recorder")
+            if recorder is not None and self.token_usage is not None:
+                recorder.record(
+                    ModelCallUsage(
+                        task=LLMTaskKind.ANSWER,
+                        model="answer-model",
+                        attempt=1,
+                        response_id="answer-response",
+                        token_usage=self.token_usage,
+                    )
+                )
+
         return GeneratedAnswerStream(
-            chunks=(
-                self.generated.content[:midpoint],
-                self.generated.content[midpoint:],
-            ),
+            chunks=chunks(),
             context_memory_ids=self.generated.context_memory_ids,
         )
 
@@ -126,15 +147,30 @@ class FakeReinforceMemory:
 
 class FakeExtractor:
     def __init__(
-        self, events: list[str], candidates: tuple[ProposedMemory, ...]
+        self,
+        events: list[str],
+        candidates: tuple[ProposedMemory, ...],
+        token_usage: ModelTokenUsage | None = None,
     ) -> None:
         self.events = events
         self.candidates = candidates
+        self.token_usage = token_usage
         self.calls = []
 
     def extract(self, **values) -> tuple[ProposedMemory, ...]:
         self.events.append("extraction")
         self.calls.append(values)
+        recorder = values.get("usage_recorder")
+        if recorder is not None and self.token_usage is not None:
+            recorder.record(
+                ModelCallUsage(
+                    task=LLMTaskKind.EXTRACTION,
+                    model="extraction-model",
+                    attempt=1,
+                    response_id="extraction-response",
+                    token_usage=self.token_usage,
+                )
+            )
         return self.candidates
 
 
@@ -143,26 +179,55 @@ class FakeReconciler:
         self,
         events: list[str],
         decisions: dict[str, ReconciliationDecision],
+        token_usage: ModelTokenUsage | None = None,
     ) -> None:
         self.events = events
         self.decisions = decisions
+        self.token_usage = token_usage
         self.calls = []
 
     def reconcile(self, **values) -> tuple[ReconciliationDecision, ...]:
         candidates = values["candidates"]
         self.events.append("reconcile_batch")
         self.calls.append(values)
+        recorder = values.get("usage_recorder")
+        if recorder is not None and self.token_usage is not None:
+            recorder.record(
+                ModelCallUsage(
+                    task=LLMTaskKind.RECONCILIATION,
+                    model="reconciliation-model",
+                    attempt=1,
+                    response_id="reconciliation-response",
+                    token_usage=self.token_usage,
+                )
+            )
         return tuple(self.decisions[candidate.content] for candidate in candidates)
 
 
 class FakeStoreMemory:
-    def __init__(self, events: list[str]) -> None:
+    def __init__(
+        self,
+        events: list[str],
+        token_usage: ModelTokenUsage | None = None,
+    ) -> None:
         self.events = events
+        self.token_usage = token_usage
         self.calls = []
 
     def execute(self, **values) -> UUID:
         self.events.append(f"store_memory:{values['memory'].content}")
         self.calls.append(values)
+        recorder = values.get("usage_recorder")
+        if recorder is not None and self.token_usage is not None:
+            recorder.record(
+                ModelCallUsage(
+                    task=LLMTaskKind.LIFECYCLE,
+                    model="lifecycle-model",
+                    attempt=1,
+                    response_id="lifecycle-response",
+                    token_usage=self.token_usage,
+                )
+            )
         return values["memory"].memory_id
 
 
@@ -218,10 +283,14 @@ class ProcessConversationTurnTests(unittest.TestCase):
     def test_one_retrieval_feeds_extraction_and_one_batch_reconciliation(self) -> None:
         store_message = FakeStoreMessage(self.events)
         reinforce = FakeReinforceMemory(self.events)
-        store_memory = FakeStoreMemory(self.events)
+        store_memory = FakeStoreMemory(
+            self.events,
+            ModelTokenUsage(20, 5, 25, reasoning_output_tokens=2),
+        )
         extractor = FakeExtractor(
             self.events,
             (self.preference_candidate, self.location_candidate),
+            ModelTokenUsage(80, 10, 90),
         )
         reconciler = FakeReconciler(
             self.events,
@@ -240,6 +309,7 @@ class ProcessConversationTurnTests(unittest.TestCase):
                     equivalent_memory_id=self.location_context.memory_id,
                 ),
             },
+            ModelTokenUsage(90, 10, 100),
         )
         processor = ProcessConversationTurn(
             get_session_history=FakeHistory(
@@ -261,6 +331,12 @@ class ProcessConversationTurnTests(unittest.TestCase):
                         self.answer_neighbor.memory_id,
                     ),
                     attributed_memory_ids=(self.answer_neighbor.memory_id,),
+                ),
+                ModelTokenUsage(
+                    100,
+                    20,
+                    120,
+                    cached_input_tokens=32,
                 ),
             ),
             memory_extractor=extractor,
@@ -337,6 +413,23 @@ class ProcessConversationTurnTests(unittest.TestCase):
         self.assertLess(
             self.events.index("extraction"),
             self.events.index("reconcile_batch"),
+        )
+        totals = result.llm_usage.token_totals
+        self.assertIsNotNone(totals)
+        self.assertEqual(totals.input_tokens, 290)
+        self.assertEqual(totals.output_tokens, 45)
+        self.assertEqual(totals.total_tokens, 335)
+        self.assertEqual(totals.cached_input_tokens, 32)
+        self.assertEqual(totals.reasoning_output_tokens, 2)
+        self.assertTrue(result.llm_usage.usage_complete)
+        self.assertEqual(
+            [call.task for call in result.llm_usage.calls],
+            [
+                LLMTaskKind.ANSWER,
+                LLMTaskKind.EXTRACTION,
+                LLMTaskKind.RECONCILIATION,
+                LLMTaskKind.LIFECYCLE,
+            ],
         )
 
     def test_fabricated_equivalent_id_fails_candidate_without_storing(self) -> None:

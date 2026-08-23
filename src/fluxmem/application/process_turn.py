@@ -5,6 +5,7 @@ from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from threading import Lock
 from uuid import UUID, uuid4
 
+from fluxmem.application.llm.usage import ModelUsageCollector
 from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.llm import (
     AnswerGenerator,
@@ -25,6 +26,7 @@ from fluxmem.domain.info_pack import (
 )
 from fluxmem.domain.llm import (
     ConversationTurnResult,
+    LLMUsageReport,
     MemoryWriteOutcome,
     MemoryWriteStatus,
     ProposedMemory,
@@ -45,9 +47,11 @@ class ConversationTurnStream(Iterator[str]):
         finalize: Callable[
             [str], tuple[Message, Future[ConversationTurnResult]]
         ],
+        usage_collector: ModelUsageCollector,
     ) -> None:
         self._chunks = iter(chunks)
         self._finalize = finalize
+        self._usage_collector = usage_collector
         self._parts: list[str] = []
         self._finished = False
         self._answer: Message | None = None
@@ -108,6 +112,12 @@ class ConversationTurnStream(Iterator[str]):
     ) -> ConversationTurnResult:
         return self.post_answer_future.result(timeout=timeout)
 
+    @property
+    def llm_usage(self) -> LLMUsageReport:
+        """Usage observed so far; answer usage appears after exhaustion."""
+
+        return self._usage_collector.snapshot()
+
 
 class ProcessConversationTurn:
     """Coordinate answering first, then bounded post-answer memory writes."""
@@ -125,7 +135,7 @@ class ProcessConversationTurn:
         memory_reconciler: MemoryReconciler,
         clock: Clock | None = None,
         id_factory: Callable[[], UUID] = uuid4,
-        history_limit: int = 32,
+        history_limit: int = 128,
         answering_limit: int = 10,
         enable_memory_extraction: bool = True,
         enable_memory_writes: bool = True,
@@ -186,14 +196,17 @@ class ProcessConversationTurn:
             limit=self._answering_limit,
         )
         answering_pack = turn_memory_packs.expanded
+        usage_collector = ModelUsageCollector()
         generated = self._answer_generator.stream(
             message=message,
             session_history=history,
             memory_pack=answering_pack,
+            usage_recorder=usage_collector,
         )
 
         return ConversationTurnStream(
             chunks=generated,
+            usage_collector=usage_collector,
             finalize=lambda content: self._finish_answer(
                 user_id=user_id,
                 message=message,
@@ -203,6 +216,7 @@ class ProcessConversationTurn:
                 answering_pack=answering_pack,
                 content=content,
                 context_memory_ids=generated.context_memory_ids,
+                usage_collector=usage_collector,
             ),
         )
 
@@ -246,6 +260,7 @@ class ProcessConversationTurn:
         answering_pack: MemoryPack,
         content: str,
         context_memory_ids: tuple[UUID, ...],
+        usage_collector: ModelUsageCollector,
     ) -> tuple[Message, Future[ConversationTurnResult]]:
         answer = Message(
             message_id=self._id_factory(),
@@ -266,6 +281,7 @@ class ProcessConversationTurn:
             extraction_pack=extraction_pack,
             answering_pack=answering_pack,
             context_memory_ids=context_memory_ids,
+            usage_collector=usage_collector,
         )
         return answer, future
 
@@ -279,6 +295,7 @@ class ProcessConversationTurn:
         extraction_pack: MemoryPack,
         answering_pack: MemoryPack,
         context_memory_ids: tuple[UUID, ...],
+        usage_collector: ModelUsageCollector,
     ) -> ConversationTurnResult:
         errors: list[str] = []
         feedback_applied = self._apply_feedback(
@@ -295,6 +312,7 @@ class ProcessConversationTurn:
                     target_messages=(message,),
                     session_history=history,
                     memory_pack=extraction_pack,
+                    usage_recorder=usage_collector,
                 )
             except Exception as error:
                 errors.append(_error_text("extraction", error))
@@ -311,6 +329,7 @@ class ProcessConversationTurn:
             candidates=candidates,
             memory_pack=answering_pack,
             errors=errors,
+            usage_collector=usage_collector,
         )
         return ConversationTurnResult(
             answer=answer,
@@ -318,6 +337,7 @@ class ProcessConversationTurn:
             feedback_applied=feedback_applied,
             memory_outcomes=outcomes,
             post_answer_errors=tuple(errors),
+            llm_usage=usage_collector.snapshot(),
         )
 
     def _apply_feedback(
@@ -372,6 +392,7 @@ class ProcessConversationTurn:
         candidates: tuple[ProposedMemory, ...],
         memory_pack: MemoryPack,
         errors: list[str],
+        usage_collector: ModelUsageCollector,
     ) -> tuple[MemoryWriteOutcome, ...]:
         if not candidates:
             return ()
@@ -404,6 +425,7 @@ class ProcessConversationTurn:
                     memory_pack=memory_pack,
                     evidence_messages=evidence_messages,
                     session_history=session_history,
+                    usage_recorder=usage_collector,
                 )
                 if len(decisions) != len(valid_candidates):
                     raise ValueError(
@@ -433,6 +455,7 @@ class ProcessConversationTurn:
                 candidate=candidate,
                 decision=decision,
                 memory_pack=memory_pack,
+                usage_collector=usage_collector,
             )
         return tuple(
             outcomes_by_index[index] for index in range(len(candidates))
@@ -458,6 +481,7 @@ class ProcessConversationTurn:
         candidate: ProposedMemory,
         decision: ReconciliationDecision,
         memory_pack: MemoryPack,
+        usage_collector: ModelUsageCollector,
     ) -> MemoryWriteOutcome:
         try:
             allowed_ids = {
@@ -507,6 +531,7 @@ class ProcessConversationTurn:
                     if self._enable_conflict_detection
                     else ()
                 ),
+                usage_recorder=usage_collector,
             )
             return MemoryWriteOutcome(
                 candidate=candidate,

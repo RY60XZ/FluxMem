@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -12,6 +12,119 @@ from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
 
+class LLMTaskKind(StrEnum):
+    ANSWER = "answer"
+    EXTRACTION = "extraction"
+    RECONCILIATION = "reconciliation"
+    LIFECYCLE = "lifecycle"
+
+
+@dataclass(frozen=True, slots=True)
+class ModelTokenUsage:
+    """Provider-neutral token counts reported for one model response."""
+
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cached_input_tokens: int = 0
+    cache_write_input_tokens: int = 0
+    reasoning_output_tokens: int = 0
+
+    def __post_init__(self) -> None:
+        values = (
+            self.input_tokens,
+            self.output_tokens,
+            self.total_tokens,
+            self.cached_input_tokens,
+            self.cache_write_input_tokens,
+            self.reasoning_output_tokens,
+        )
+        if any(
+            isinstance(value, bool) or not isinstance(value, int)
+            for value in values
+        ):
+            raise TypeError("model token counts must be integers")
+        if any(value < 0 for value in values):
+            raise ValueError("model token counts cannot be negative")
+        if self.total_tokens < self.input_tokens + self.output_tokens:
+            raise ValueError(
+                "total tokens cannot be less than input plus output tokens"
+            )
+        if self.cached_input_tokens > self.input_tokens:
+            raise ValueError("cached input tokens cannot exceed input tokens")
+        if self.reasoning_output_tokens > self.output_tokens:
+            raise ValueError("reasoning output tokens cannot exceed output tokens")
+
+    def __add__(self, other: ModelTokenUsage) -> ModelTokenUsage:
+        if not isinstance(other, ModelTokenUsage):
+            return NotImplemented
+        return ModelTokenUsage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            total_tokens=self.total_tokens + other.total_tokens,
+            cached_input_tokens=(
+                self.cached_input_tokens + other.cached_input_tokens
+            ),
+            cache_write_input_tokens=(
+                self.cache_write_input_tokens + other.cache_write_input_tokens
+            ),
+            reasoning_output_tokens=(
+                self.reasoning_output_tokens + other.reasoning_output_tokens
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ModelCallUsage:
+    """Identity and usage metadata for one attempted model response."""
+
+    task: LLMTaskKind
+    model: str
+    attempt: int
+    token_usage: ModelTokenUsage | None
+    response_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.model.strip():
+            raise ValueError("model name cannot be blank")
+        if self.attempt < 1:
+            raise ValueError("model-call attempt must be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class LLMUsageReport:
+    """All observed model calls, including repair attempts, for an operation."""
+
+    calls: tuple[ModelCallUsage, ...] = ()
+
+    @property
+    def token_totals(self) -> ModelTokenUsage | None:
+        reported = tuple(
+            call.token_usage
+            for call in self.calls
+            if call.token_usage is not None
+        )
+        if not reported:
+            return None
+        total = reported[0]
+        for usage in reported[1:]:
+            total += usage
+        return total
+
+    @property
+    def usage_complete(self) -> bool:
+        return all(call.token_usage is not None for call in self.calls)
+
+    @property
+    def reported_call_count(self) -> int:
+        return sum(call.token_usage is not None for call in self.calls)
+
+    def for_task(self, task: LLMTaskKind) -> LLMUsageReport:
+        return LLMUsageReport(
+            calls=tuple(call for call in self.calls if call.task is task)
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class GeneratedAnswer:
     """An answer plus memory-use metadata validated by the application."""
@@ -19,6 +132,7 @@ class GeneratedAnswer:
     content: str
     context_memory_ids: tuple[UUID, ...]
     attributed_memory_ids: tuple[UUID, ...] = ()
+    llm_usage: LLMUsageReport = LLMUsageReport()
 
     def __post_init__(self) -> None:
         if not self.content.strip():
@@ -39,6 +153,11 @@ class GeneratedAnswerStream:
 
     chunks: Iterable[str]
     context_memory_ids: tuple[UUID, ...]
+    _usage_supplier: Callable[[], LLMUsageReport] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         if len(set(self.context_memory_ids)) != len(self.context_memory_ids):
@@ -46,6 +165,12 @@ class GeneratedAnswerStream:
 
     def __iter__(self) -> Iterator[str]:
         return iter(self.chunks)
+
+    @property
+    def llm_usage(self) -> LLMUsageReport:
+        if self._usage_supplier is None:
+            return LLMUsageReport()
+        return self._usage_supplier()
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +255,7 @@ class ConversationTurnResult:
     feedback_applied: bool
     memory_outcomes: tuple[MemoryWriteOutcome, ...]
     post_answer_errors: tuple[str, ...] = ()
+    llm_usage: LLMUsageReport = LLMUsageReport()
 
 
 def proposed_memory_to_memory(

@@ -14,6 +14,7 @@ from fluxmem.application.llm import (
     LLMMemoryExtractor,
     LLMMemoryReconciler,
     LLMTaskSettings,
+    ModelUsageCollector,
     load_prompt,
     render_memory_pack,
     render_messages,
@@ -21,6 +22,7 @@ from fluxmem.application.llm import (
 from fluxmem.application.llm.prompt_loader import render_repair_prompt
 from fluxmem.application.lifecycle import tier_for_importance
 from fluxmem.application.ports.llm import (
+    ModelInputTextBlock,
     ModelTimeoutError,
     StructuredModelResponse,
 )
@@ -28,13 +30,19 @@ from fluxmem.domain.conflict import MemoryConflict
 from fluxmem.domain.info_pack import MemoryPack, MessagePack, RetrievedMemory
 from fluxmem.domain.lifecycle import DecisionSource, Tier
 from fluxmem.domain.llm import ProposedMemory, ReconciliationAction
+from fluxmem.domain.llm import LLMTaskKind, ModelTokenUsage
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
 
 class QueuedProvider:
-    def __init__(self, *outputs: dict) -> None:
+    def __init__(
+        self,
+        *outputs: dict,
+        usages: tuple[ModelTokenUsage | None, ...] = (),
+    ) -> None:
         self.outputs = list(outputs)
+        self.usages = list(usages)
         self.calls: list[dict] = []
 
     def generate(self, **values) -> StructuredModelResponse:
@@ -44,6 +52,7 @@ class QueuedProvider:
             output_text=json.dumps(output),
             model=values["model"],
             response_id=f"response-{len(self.calls)}",
+            usage=(self.usages.pop(0) if self.usages else None),
         )
 
 
@@ -55,6 +64,17 @@ class StreamingProvider:
     def stream_text(self, **values):
         self.calls.append(values)
         return iter(self.chunks)
+
+
+class CharacterTokenCounter:
+    def count(self, text: str) -> int:
+        return len(text)
+
+
+class FailingStructuredProvider:
+    def generate(self, **values) -> StructuredModelResponse:
+        del values
+        raise ModelTimeoutError("deadline")
 
 
 class LLMTaskTests(unittest.TestCase):
@@ -264,7 +284,7 @@ class LLMTaskTests(unittest.TestCase):
         self.assertIs(tier_for_importance(0.79), Tier.SHORT_TERM)
         self.assertIs(tier_for_importance(0.80), Tier.LONG_TERM)
 
-    def test_truncated_message_context_remains_valid_bounded_json(self) -> None:
+    def test_token_bounded_message_context_remains_valid_json(self) -> None:
         long_message = Message(
             message_id=self.user_message.message_id,
             session_id=self.session_id,
@@ -279,7 +299,8 @@ class LLMTaskTests(unittest.TestCase):
                 session_id=self.session_id,
                 messages=(long_message,),
             ),
-            settings=LLMContextSettings(maximum_history_characters=180),
+            settings=LLMContextSettings(maximum_answer_input_tokens=180),
+            token_counter=CharacterTokenCounter(),
         )
 
         self.assertLessEqual(len(rendered.text), 180)
@@ -288,6 +309,69 @@ class LLMTaskTests(unittest.TestCase):
             1,
         )
         self.assertNotIn(str(long_message.message_id), rendered.text)
+
+    def test_answer_history_keeps_latest_128_messages(self) -> None:
+        messages = tuple(
+            self._message(
+                "user" if index % 2 == 0 else "assistant",
+                f"message {index}",
+            )
+            for index in range(140)
+        )
+
+        rendered = render_messages(
+            message_pack=MessagePack(
+                user_id=self.user_id,
+                session_id=self.session_id,
+                messages=messages,
+            ),
+            settings=LLMContextSettings(
+                maximum_answer_input_tokens=100_000,
+            ),
+            token_counter=CharacterTokenCounter(),
+        )
+
+        self.assertEqual(len(rendered.message_references.ids), 128)
+        self.assertEqual(
+            rendered.message_references.ids,
+            tuple(message.message_id for message in messages[-128:]),
+        )
+
+    def test_answer_input_budget_includes_instructions_and_memories(self) -> None:
+        provider = StreamingProvider("Okay.")
+        long_message = Message(
+            message_id=self.user_message.message_id,
+            session_id=self.session_id,
+            role="user",
+            agent_id=None,
+            content="Please consider this detail. " * 400,
+            created_at=self.now,
+        )
+        generator = LLMAnswerGenerator(
+            provider=provider,
+            settings=self.task_settings,
+            context_settings=LLMContextSettings(
+                maximum_answer_input_tokens=2_000,
+            ),
+            token_counter=CharacterTokenCounter(),
+        )
+
+        generator.stream(
+            message=long_message,
+            session_history=MessagePack(
+                user_id=self.user_id,
+                session_id=self.session_id,
+                messages=(long_message,),
+            ),
+            memory_pack=self.pack,
+        )
+
+        call = provider.calls[0]
+        self.assertLessEqual(
+            len(call["instructions"]) + len(call["input_text"]),
+            2_000,
+        )
+        self.assertNotIn(long_message.content, call["input_text"])
 
     def test_answer_streams_plain_text_with_supplied_context_ids(self) -> None:
         provider = StreamingProvider(
@@ -312,6 +396,25 @@ class LLMTaskTests(unittest.TestCase):
         )
         self.assertEqual(len(provider.calls), 1)
         self.assertEqual(provider.calls[0]["instructions"], load_prompt("answer"))
+        blocks = provider.calls[0]["input_text_blocks"]
+        self.assertEqual(
+            "".join(block.text for block in blocks),
+            provider.calls[0]["input_text"],
+        )
+        self.assertFalse(blocks[0].cache_breakpoint)
+        self.assertTrue(
+            all(block.cache_breakpoint for block in blocks[1:-1])
+        )
+        self.assertFalse(blocks[-1].cache_breakpoint)
+        self.assertNotIn(
+            self.seed.content,
+            "".join(block.text for block in blocks[:-1]),
+        )
+        self.assertIn(self.seed.content, blocks[-1].text)
+        cache_key = provider.calls[0]["prompt_cache_key"]
+        self.assertTrue(cache_key.startswith("fluxmem-answer:"))
+        self.assertNotIn(str(self.user_id), cache_key)
+        self.assertNotIn(str(self.session_id), cache_key)
         self.assertNotIn(str(self.seed.memory_id), provider.calls[0]["input_text"])
         self.assertNotIn(
             str(self.user_message.message_id),
@@ -327,6 +430,44 @@ class LLMTaskTests(unittest.TestCase):
             (self.seed.memory_id, self.neighbor.memory_id),
         )
         self.assertNotIn("schema", provider.calls[0])
+
+    def test_answer_conversation_prefix_survives_appended_turns(self) -> None:
+        provider = StreamingProvider("Okay.")
+        generator = LLMAnswerGenerator(
+            provider=provider,
+            settings=self.task_settings,
+        )
+        generator.stream(
+            message=self.user_message,
+            session_history=self.history,
+            memory_pack=self.pack,
+        )
+        prior_answer = self._message("assistant", "Understood")
+        next_message = self._message("user", "What about coffee?")
+        next_history = MessagePack(
+            user_id=self.user_id,
+            session_id=self.session_id,
+            messages=(self.user_message, prior_answer, next_message),
+        )
+        generator.stream(
+            message=next_message,
+            session_history=next_history,
+            memory_pack=self.pack,
+        )
+
+        first_call, second_call = provider.calls
+        first_blocks = first_call["input_text_blocks"]
+        second_blocks = second_call["input_text_blocks"]
+        reusable_length = len(first_blocks) - 1
+        self.assertEqual(
+            first_blocks[:reusable_length],
+            second_blocks[:reusable_length],
+        )
+        self.assertNotEqual(first_blocks[-1], second_blocks[reusable_length])
+        self.assertEqual(
+            first_call["prompt_cache_key"],
+            second_call["prompt_cache_key"],
+        )
 
     def test_answer_generate_explicitly_collects_the_text_stream(self) -> None:
         provider = StreamingProvider(
@@ -422,6 +563,89 @@ class LLMTaskTests(unittest.TestCase):
         )
         self.assertIn(self.seed.content, provider.calls[0]["input_text"])
         self.assertNotIn('"memory_ref"', provider.calls[0]["input_text"])
+
+    def test_structured_repairs_report_both_model_attempts(self) -> None:
+        first_usage = ModelTokenUsage(
+            input_tokens=100,
+            output_tokens=20,
+            total_tokens=120,
+            cached_input_tokens=64,
+        )
+        repair_usage = ModelTokenUsage(
+            input_tokens=130,
+            output_tokens=10,
+            total_tokens=140,
+        )
+        provider = QueuedProvider(
+            {
+                "memories": [
+                    {
+                        "content": "The user prefers tea",
+                        "source_message_ref": 999,
+                        "session_limited": False,
+                        "valid_from": None,
+                        "valid_to": None,
+                    }
+                ]
+            },
+            {
+                "memories": [
+                    {
+                        "content": "The user prefers tea",
+                        "source_message_ref": 1,
+                        "session_limited": False,
+                        "valid_from": None,
+                        "valid_to": None,
+                    }
+                ]
+            },
+            usages=(first_usage, repair_usage),
+        )
+        collector = ModelUsageCollector()
+        extractor = LLMMemoryExtractor(
+            provider=provider,
+            settings=self.task_settings,
+        )
+
+        extractor.extract(
+            target_messages=(self.user_message,),
+            session_history=self.history,
+            memory_pack=self.pack,
+            usage_recorder=collector,
+        )
+
+        report = collector.snapshot()
+        self.assertEqual(
+            [call.attempt for call in report.calls],
+            [1, 2],
+        )
+        self.assertTrue(
+            all(call.task is LLMTaskKind.EXTRACTION for call in report.calls)
+        )
+        self.assertEqual(report.token_totals, first_usage + repair_usage)
+        self.assertTrue(report.usage_complete)
+
+    def test_failed_structured_call_is_reported_with_unknown_usage(self) -> None:
+        collector = ModelUsageCollector()
+        extractor = LLMMemoryExtractor(
+            provider=FailingStructuredProvider(),
+            settings=self.task_settings,
+        )
+
+        with self.assertRaises(ModelTimeoutError):
+            extractor.extract(
+                target_messages=(self.user_message,),
+                session_history=self.history,
+                memory_pack=self.pack,
+                usage_recorder=collector,
+            )
+
+        report = collector.snapshot()
+        self.assertEqual(len(report.calls), 1)
+        self.assertIs(report.calls[0].task, LLMTaskKind.EXTRACTION)
+        self.assertIsNone(report.calls[0].token_usage)
+        self.assertIsNone(report.token_totals)
+        self.assertFalse(report.usage_complete)
 
     def test_reconciliation_rejects_out_of_pack_ids_before_repair(self) -> None:
         provider = QueuedProvider(
@@ -656,6 +880,16 @@ class FakeResponses:
 
     def create(self, **values):
         self.request = values
+        usage = SimpleNamespace(
+            input_tokens=120,
+            output_tokens=12,
+            total_tokens=132,
+            input_tokens_details=SimpleNamespace(
+                cached_tokens=64,
+                cache_write_tokens=32,
+            ),
+            output_tokens_details=SimpleNamespace(reasoning_tokens=4),
+        )
         if values.get("stream"):
             return iter(
                 (
@@ -667,13 +901,21 @@ class FakeResponses:
                         type="response.output_text.delta",
                         delta="world.",
                     ),
-                    SimpleNamespace(type="response.completed"),
+                    SimpleNamespace(
+                        type="response.completed",
+                        response=SimpleNamespace(
+                            model=values["model"],
+                            id="response-stream-1",
+                            usage=usage,
+                        ),
+                    ),
                 )
             )
         return SimpleNamespace(
             output_text='{"ok":true}',
             model=values["model"],
             id="response-1",
+            usage=usage,
         )
 
 
@@ -715,6 +957,10 @@ class OpenAIResponsesProviderTests(unittest.TestCase):
 
         self.assertEqual(client.timeout, 12)
         self.assertEqual(result.output_text, '{"ok":true}')
+        self.assertEqual(result.usage.input_tokens, 120)
+        self.assertEqual(result.usage.cached_input_tokens, 64)
+        self.assertEqual(result.usage.cache_write_input_tokens, 32)
+        self.assertEqual(result.usage.reasoning_output_tokens, 4)
         self.assertFalse(client.responses.request["store"])
         self.assertEqual(client.responses.request["max_output_tokens"], 128)
         self.assertEqual(
@@ -731,21 +977,94 @@ class OpenAIResponsesProviderTests(unittest.TestCase):
         client = FakeOpenAIClient()
         provider = OpenAIResponsesProvider(client=client)
 
-        chunks = tuple(
-            provider.stream_text(
-                model="test-model",
-                instructions="Answer",
-                input_text="input",
-                timeout_seconds=12,
-                maximum_output_tokens=128,
-            )
+        stream = provider.stream_text(
+            model="test-model",
+            instructions="Answer",
+            input_text="input",
+            timeout_seconds=12,
+            maximum_output_tokens=128,
         )
+        chunks = tuple(stream)
 
         self.assertEqual(chunks, ("Hello, ", "world."))
+        self.assertEqual(stream.response_id, "response-stream-1")
+        self.assertEqual(stream.usage.total_tokens, 132)
+        self.assertEqual(stream.usage.cached_input_tokens, 64)
         self.assertEqual(client.timeout, 12)
         self.assertTrue(client.responses.request["stream"])
         self.assertFalse(client.responses.request["store"])
         self.assertNotIn("text", client.responses.request)
+        self.assertEqual(client.responses.request["input"], "input")
+        self.assertNotIn("extra_body", client.responses.request)
+
+    def test_answer_stream_uses_explicit_conversation_breakpoints(self) -> None:
+        client = FakeOpenAIClient()
+        provider = OpenAIResponsesProvider(client=client)
+        blocks = (
+            ModelInputTextBlock("header\n"),
+            ModelInputTextBlock("message\n", cache_breakpoint=True),
+            ModelInputTextBlock("\nmemory"),
+        )
+
+        stream = provider.stream_text(
+            model="gpt-5.6-test",
+            instructions="Answer",
+            input_text="".join(block.text for block in blocks),
+            input_text_blocks=blocks,
+            prompt_cache_key="fluxmem-answer:test",
+            timeout_seconds=12,
+            maximum_output_tokens=128,
+        )
+        tuple(stream)
+
+        request = client.responses.request
+        content = request["input"][0]["content"]
+        self.assertEqual(
+            [item["text"] for item in content],
+            [block.text for block in blocks],
+        )
+        self.assertNotIn("prompt_cache_breakpoint", content[0])
+        self.assertEqual(
+            content[1]["prompt_cache_breakpoint"],
+            {"mode": "explicit"},
+        )
+        self.assertNotIn("prompt_cache_breakpoint", content[2])
+        self.assertEqual(
+            request["extra_body"],
+            {
+                "prompt_cache_key": "fluxmem-answer:test",
+                "prompt_cache_options": {"mode": "explicit"},
+            },
+        )
+
+    def test_older_models_keep_cache_key_without_explicit_fields(self) -> None:
+        client = FakeOpenAIClient()
+        provider = OpenAIResponsesProvider(client=client)
+        blocks = (
+            ModelInputTextBlock("conversation\n", cache_breakpoint=True),
+            ModelInputTextBlock("memory"),
+        )
+
+        stream = provider.stream_text(
+            model="gpt-5.5-test",
+            instructions="Answer",
+            input_text="conversation\nmemory",
+            input_text_blocks=blocks,
+            prompt_cache_key="fluxmem-answer:test",
+            timeout_seconds=12,
+            maximum_output_tokens=128,
+        )
+        tuple(stream)
+
+        request = client.responses.request
+        content = request["input"][0]["content"]
+        self.assertTrue(
+            all("prompt_cache_breakpoint" not in item for item in content)
+        )
+        self.assertEqual(
+            request["extra_body"],
+            {"prompt_cache_key": "fluxmem-answer:test"},
+        )
 
     def test_maps_provider_timeout_to_port_error(self) -> None:
         provider = OpenAIResponsesProvider(client=TimingOutOpenAIClient())

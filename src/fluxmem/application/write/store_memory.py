@@ -18,6 +18,7 @@ from fluxmem.application.ports.embeddings import (
     EmbeddingProviderError,
 )
 from fluxmem.application.ports.lifecycle import LifecycleEvaluator
+from fluxmem.application.ports.llm import ModelUsageRecorder
 from fluxmem.application.ports.unit_of_work import UnitOfWork
 from fluxmem.domain.conflict import ConflictProposal, MemoryConflict
 from fluxmem.domain.lifecycle import MemoryLifecycle
@@ -64,6 +65,7 @@ class StoreMemory:
         memory: Memory,
         write_context_query_id: UUID | None = None,
         conflict_proposals: tuple[ConflictProposal, ...] = (),
+        usage_recorder: ModelUsageRecorder | None = None,
     ) -> UUID:
         # Resolve immutable evidence in a short read transaction. Provider calls
         # happen only after this context has closed.
@@ -90,6 +92,7 @@ class StoreMemory:
             memory=memory,
             source_role=source_message.role,
             initialized_at=initialized_at,
+            usage_recorder=usage_recorder,
         )
         memory_index = MemoryIndex(
             memory_id=memory.memory_id,
@@ -201,6 +204,7 @@ class StoreMemory:
         memory: Memory,
         source_role: str,
         initialized_at: datetime,
+        usage_recorder: ModelUsageRecorder | None,
     ) -> MemoryLifecycle:
         """Use the rule evaluator when a configured semantic evaluator fails."""
 
@@ -209,6 +213,7 @@ class StoreMemory:
                 memory=memory,
                 source_role=source_role,
                 evaluated_at=initialized_at,
+                usage_recorder=usage_recorder,
             )
             return self._lifecycle_policy.initialize(
                 memory=memory,
@@ -222,6 +227,7 @@ class StoreMemory:
                 memory=memory,
                 source_role=source_role,
                 evaluated_at=initialized_at,
+                usage_recorder=usage_recorder,
             )
             return self._lifecycle_policy.initialize(
                 memory=memory,

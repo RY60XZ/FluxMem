@@ -138,6 +138,7 @@ def bootstrap(
             answer_generator=answer_generator,
             memory_extractor=memory_extractor,
             memory_reconciler=memory_reconciler,
+            history_limit=llm_settings.context.maximum_history_messages,
             enable_memory_extraction=llm_settings.enable_memory_extraction,
             enable_memory_writes=llm_settings.enable_memory_writes,
             enable_conflict_detection=llm_settings.enable_conflict_detection,

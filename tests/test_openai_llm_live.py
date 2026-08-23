@@ -31,6 +31,8 @@ class OpenAILiveIntegrationTests(unittest.TestCase):
         )
 
         self.assertEqual(json.loads(response.output_text), {"ok": True})
+        self.assertIsNotNone(response.usage)
+        self.assertGreater(response.usage.total_tokens, 0)
 
 
 if __name__ == "__main__":

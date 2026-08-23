@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from math import ceil
+from typing import Protocol
 from uuid import UUID
 
 from fluxmem.domain.info_pack import MemoryPack, MessagePack
@@ -10,8 +12,8 @@ from fluxmem.domain.message import Message
 
 @dataclass(frozen=True, slots=True)
 class LLMContextSettings:
-    maximum_history_messages: int = 16
-    maximum_history_characters: int = 12_000
+    maximum_history_messages: int = 128
+    maximum_answer_input_tokens: int = 64_000
     maximum_write_history_messages: int = 6
     maximum_write_history_characters: int = 4_000
     maximum_write_message_content_characters: int = 1_000
@@ -23,8 +25,8 @@ class LLMContextSettings:
     def __post_init__(self) -> None:
         if self.maximum_history_messages < 1:
             raise ValueError("history message limit must be positive")
-        if self.maximum_history_characters < 1:
-            raise ValueError("history character limit must be positive")
+        if self.maximum_answer_input_tokens < 1:
+            raise ValueError("answer input-token budget must be positive")
         if self.maximum_write_history_messages < 1:
             raise ValueError("write-history message limit must be positive")
         if self.maximum_write_history_characters < 1:
@@ -84,6 +86,28 @@ class RenderedMemoryContext:
         return self.memory_references.ids
 
 
+class TokenCounter(Protocol):
+    """Estimate preflight tokens before provider-native usage is available."""
+
+    def count(self, text: str) -> int: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ApproximateTokenCounter:
+    """Portable UTF-8 estimate; actual provider usage remains authoritative."""
+
+    utf8_bytes_per_token: float = 3.0
+
+    def __post_init__(self) -> None:
+        if self.utf8_bytes_per_token <= 0:
+            raise ValueError("UTF-8 bytes per token must be positive")
+
+    def count(self, text: str) -> int:
+        if not text:
+            return 0
+        return ceil(len(text.encode("utf-8")) / self.utf8_bytes_per_token)
+
+
 def _clip(value: str, *, limit: int) -> str:
     if limit <= 0:
         return ""
@@ -126,14 +150,54 @@ def _bounded_json_line(
     return best
 
 
+def _bounded_json_line_by_tokens(
+    *,
+    record: dict[str, object],
+    text_field: str,
+    limit: int,
+    token_counter: TokenCounter,
+) -> str | None:
+    def encode(content: str) -> str:
+        bounded = dict(record)
+        bounded[text_field] = content
+        return json.dumps(
+            bounded,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+
+    content = str(record[text_field])
+    rendered = encode(content)
+    if token_counter.count(rendered) <= limit:
+        return rendered
+    if token_counter.count(encode("")) > limit:
+        return None
+
+    low = 0
+    high = len(content)
+    best = ""
+    while low <= high:
+        middle = (low + high) // 2
+        candidate = _clip(content, limit=middle)
+        encoded = encode(candidate)
+        if token_counter.count(encoded) <= limit:
+            best = encoded
+            low = middle + 1
+        else:
+            high = middle - 1
+    return best
+
+
 def render_messages(
     *,
     message_pack: MessagePack,
     settings: LLMContextSettings,
     extra_messages: tuple[Message, ...] = (),
     maximum_messages: int | None = None,
+    maximum_tokens: int | None = None,
     maximum_characters: int | None = None,
     maximum_content_characters: int | None = None,
+    token_counter: TokenCounter | None = None,
 ) -> RenderedMessageContext:
     """Render recent messages with prompt-local integer references."""
 
@@ -142,12 +206,19 @@ def render_messages(
         if maximum_messages is None
         else maximum_messages
     )
-    character_limit = (
-        settings.maximum_history_characters
-        if maximum_characters is None
-        else maximum_characters
+    if maximum_tokens is not None and maximum_characters is not None:
+        raise ValueError("message context accepts one size budget")
+    use_character_budget = maximum_characters is not None
+    size_limit = (
+        maximum_characters
+        if use_character_budget
+        else (
+            settings.maximum_answer_input_tokens
+            if maximum_tokens is None
+            else maximum_tokens
+        )
     )
-    if message_limit < 1 or character_limit < 1:
+    if message_limit < 1 or size_limit < 1:
         raise ValueError("message context limits must be positive")
     if (
         maximum_content_characters is not None
@@ -167,26 +238,40 @@ def render_messages(
 
     selected = combined[-message_limit:]
     rendered_reversed: list[tuple[Message, dict[str, object]]] = []
-    remaining = character_limit
+    counter = token_counter or ApproximateTokenCounter()
+    remaining = size_limit
     for message in reversed(selected):
-        record = _bounded_json_line(
-            record={
-                "message_ref": message_limit,
-                "role": message.role,
-                "content": (
-                    _clip(message.content, limit=maximum_content_characters)
-                    if maximum_content_characters is not None
-                    else message.content
-                ),
-                "created_at": message.created_at.isoformat(),
-            },
-            text_field="content",
-            limit=remaining,
-        )
+        raw_record = {
+            "message_ref": message_limit,
+            "role": message.role,
+            "content": (
+                _clip(message.content, limit=maximum_content_characters)
+                if maximum_content_characters is not None
+                else message.content
+            ),
+            "created_at": message.created_at.isoformat(),
+        }
+        if use_character_budget:
+            record = _bounded_json_line(
+                record=raw_record,
+                text_field="content",
+                limit=remaining,
+            )
+        else:
+            record = _bounded_json_line_by_tokens(
+                record=raw_record,
+                text_field="content",
+                limit=remaining,
+                token_counter=counter,
+            )
         if record is None:
             break
         rendered_reversed.append((message, json.loads(record)))
-        remaining -= len(record) + 1
+        remaining -= (
+            len(record) + 1
+            if use_character_budget
+            else counter.count(f"{record}\n")
+        )
         if remaining <= 0:
             break
 

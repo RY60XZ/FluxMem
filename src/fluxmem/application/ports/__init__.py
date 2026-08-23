@@ -9,11 +9,14 @@ from fluxmem.application.ports.llm import (
     InvalidModelOutputError,
     MemoryExtractor,
     MemoryReconciler,
+    ModelInputTextBlock,
+    ModelUsageRecorder,
     ModelProvider,
     ModelProviderError,
     ModelTimeoutError,
     StructuredModelProvider,
     StructuredModelResponse,
+    StreamingModelResponse,
     TextStreamingModelProvider,
 )
 
@@ -24,10 +27,13 @@ __all__ = (
     "InvalidModelOutputError",
     "MemoryExtractor",
     "MemoryReconciler",
+    "ModelInputTextBlock",
+    "ModelUsageRecorder",
     "ModelProvider",
     "ModelProviderError",
     "ModelTimeoutError",
     "StructuredModelProvider",
     "StructuredModelResponse",
+    "StreamingModelResponse",
     "TextStreamingModelProvider",
 )

@@ -17,6 +17,10 @@ dependencies = [
 
 [project.optional-dependencies]
 llm-openai = ["openai>=1.66,<3.0"]
+local = [
+    "openai>=1.66,<3.0",
+    "python-dotenv>=1.0,<2.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -8,6 +8,8 @@ from fluxmem.domain.info_pack import MemoryPack, MessagePack
 from fluxmem.domain.llm import (
     GeneratedAnswer,
     GeneratedAnswerStream,
+    ModelCallUsage,
+    ModelTokenUsage,
     ProposedMemory,
     ReconciliationDecision,
 )
@@ -31,6 +33,38 @@ class StructuredModelResponse:
     output_text: str
     model: str
     response_id: str | None = None
+    usage: ModelTokenUsage | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ModelInputTextBlock:
+    """One visible input-text block and its optional cache breakpoint."""
+
+    text: str
+    cache_breakpoint: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.text:
+            raise ValueError("model input text blocks cannot be empty")
+
+
+class StreamingModelResponse(Iterable[str], Protocol):
+    """Text deltas whose metadata is populated when the stream completes."""
+
+    @property
+    def model(self) -> str: ...
+
+    @property
+    def response_id(self) -> str | None: ...
+
+    @property
+    def usage(self) -> ModelTokenUsage | None: ...
+
+    def close(self) -> None: ...
+
+
+class ModelUsageRecorder(Protocol):
+    def record(self, call: ModelCallUsage) -> None: ...
 
 
 class StructuredModelProvider(Protocol):
@@ -56,7 +90,9 @@ class TextStreamingModelProvider(Protocol):
         input_text: str,
         timeout_seconds: float,
         maximum_output_tokens: int,
-    ) -> Iterable[str]: ...
+        input_text_blocks: tuple[ModelInputTextBlock, ...] = (),
+        prompt_cache_key: str | None = None,
+    ) -> StreamingModelResponse: ...
 
 
 class ModelProvider(
@@ -74,6 +110,7 @@ class AnswerGenerator(Protocol):
         message: Message,
         session_history: MessagePack,
         memory_pack: MemoryPack,
+        usage_recorder: ModelUsageRecorder | None = None,
     ) -> GeneratedAnswerStream: ...
 
     def generate(
@@ -82,6 +119,7 @@ class AnswerGenerator(Protocol):
         message: Message,
         session_history: MessagePack,
         memory_pack: MemoryPack,
+        usage_recorder: ModelUsageRecorder | None = None,
     ) -> GeneratedAnswer: ...
 
 
@@ -92,6 +130,7 @@ class MemoryExtractor(Protocol):
         target_messages: tuple[Message, ...],
         session_history: MessagePack,
         memory_pack: MemoryPack,
+        usage_recorder: ModelUsageRecorder | None = None,
     ) -> tuple[ProposedMemory, ...]: ...
 
 
@@ -103,4 +142,5 @@ class MemoryReconciler(Protocol):
         memory_pack: MemoryPack,
         evidence_messages: tuple[Message, ...],
         session_history: MessagePack,
+        usage_recorder: ModelUsageRecorder | None = None,
     ) -> tuple[ReconciliationDecision, ...]: ...

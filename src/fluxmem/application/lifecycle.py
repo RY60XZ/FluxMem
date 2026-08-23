@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from fluxmem.application.ports.llm import ModelUsageRecorder
 from fluxmem.domain.lifecycle import (
     DecisionSource,
     DecayClass,
@@ -32,8 +33,9 @@ class RuleLifecycleEvaluator:
         memory: Memory,
         source_role: str,
         evaluated_at: datetime,
+        usage_recorder: ModelUsageRecorder | None = None,
     ) -> LifecycleDecision:
-        del evaluated_at
+        del evaluated_at, usage_recorder
 
         if memory.session_applicability is not None or memory.valid_to is not None:
             importance = 0.5

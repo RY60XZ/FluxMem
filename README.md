@@ -32,9 +32,19 @@ the pgvector-enabled PostgreSQL service:
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -e .
+.venv/bin/pip install -e '.[local]'
+cp .env.example .env
 make db-setup
 ```
+
+Put the OpenRouter key in the untracked `.env` file:
+
+```dotenv
+OPENROUTER_API_KEY=your-openrouter-key
+```
+
+`.env` and `.env.local` are ignored by Git. Do not put real keys in
+`.env.example` or source code.
 
 Migration `0002` enables the `vector` extension, backfills lexical projections,
 and marks pre-existing memories as pending vector indexing.
@@ -189,37 +199,30 @@ extraction. Each prompt contains an exact representative input. Write-task
 examples match their strict JSON schemas, while the answer example shows plain
 streamed text.
 
-Install the optional OpenAI adapter and configure task models explicitly:
+The local runtime sends every model request through OpenRouter:
+
+- OpenRouter Chat Completions with `google/gemma-4-31b-it:free` for answering,
+  extraction, reconciliation, and lifecycle evaluation.
+- OpenRouter Embeddings with `openai/text-embedding-3-small` and 1536
+  dimensions, matching the current pgvector schema.
+
+The local extra uses the OpenAI-compatible Python SDK as an HTTP client, but
+both adapters set its base URL to `https://openrouter.ai/api/v1`; no direct
+OpenAI credential or endpoint is used by `bootstrap_from_env()`.
+
+Copy `.env.example` to `.env`, add the OpenRouter key, and build the service
+graph with one call:
 
 ```bash
-.venv/bin/pip install -e '.[llm-openai]'
+.venv/bin/pip install -e '.[local]'
 ```
 
 ```python
-import os
-
-from fluxmem.adapters.llm import OpenAIResponsesProvider
-from fluxmem.application.llm import LLMIntegrationSettings, LLMTaskSettings
-from fluxmem.bootstrap import bootstrap
+from fluxmem.local import bootstrap_from_env
 
 
-task = LLMTaskSettings(
-    model=os.environ["FLUXMEM_LLM_MODEL"],
-    timeout_seconds=30,
-    maximum_output_tokens=2048,
-)
-services = bootstrap(
-    database_url=os.environ["DATABASE_URL"],
-    structured_model_provider=OpenAIResponsesProvider(),
-    llm_settings=LLMIntegrationSettings(
-        answer=task,
-        extraction=task,
-        reconciliation=task,
-        lifecycle=task,
-        # Set False while observing extraction and reconciliation without writes.
-        enable_memory_writes=False,
-    ),
-)
+# Loads .env first; real process environment variables take precedence.
+services = bootstrap_from_env()
 
 assert services.process_turn is not None
 answer_stream = services.process_turn.execute(
@@ -232,7 +235,36 @@ for delta in answer_stream:
 
 # Optional: observe feedback, extraction, reconciliation, and write outcomes.
 result = answer_stream.wait_for_post_answer()
+
+# Provider-reported usage across answer, extraction, reconciliation, repairs,
+# and per-memory lifecycle evaluation.
+totals = result.llm_usage.token_totals
+if totals is not None:
+    print(totals.input_tokens, totals.output_tokens, totals.total_tokens)
+    print(totals.cached_input_tokens, totals.cache_write_input_tokens)
 ```
+
+`FLUXMEM_LLM_MODEL` changes the shared OpenRouter model. Independent
+`FLUXMEM_ANSWER_MODEL`, `FLUXMEM_EXTRACTION_MODEL`,
+`FLUXMEM_RECONCILIATION_MODEL`, and `FLUXMEM_LIFECYCLE_MODEL` values override it
+per task. `FLUXMEM_EMBEDDING_MODEL` configures the embedding model routed by
+OpenRouter; changing its vector space or dimensions requires a
+database/projection migration.
+
+Answering loads and renders up to 128 recent messages. Its default 64,000-token
+input budget covers instructions, recent conversation, and retrieved memories;
+configure these independently with `FLUXMEM_ANSWER_HISTORY_MESSAGES` and
+`FLUXMEM_ANSWER_INPUT_TOKEN_BUDGET`. OpenRouter reports exact native input-token
+usage only after a response, so preflight selection uses a portable UTF-8
+estimate and the reported `input_tokens` remains authoritative. Extraction and
+reconciliation retain their separate six-message/character budgets.
+
+The chosen Gemma endpoint supports JSON output but does not advertise strict
+JSON-Schema enforcement. The OpenRouter adapter therefore supplies the schema
+to the model in compact form, requests JSON-object mode, validates the result
+inside FluxMem, and uses the existing single repair attempt when needed. Keep
+`FLUXMEM_OPENROUTER_STRICT_JSON_SCHEMA=false` for this model. A future model
+that advertises strict structured outputs can opt in explicitly.
 
 One turn executes in this order:
 
@@ -259,6 +291,40 @@ deltas without waiting for the full response. Once exhausted,
 `execute_and_wait()` helper preserves synchronous full-turn behavior for batch
 jobs and tests. `FluxMemServices.close()` waits for submitted work before
 disposing the database engine.
+
+`ConversationTurnStream.llm_usage` exposes usage observed so far (normally the
+answer call once streaming finishes). The completed `ConversationTurnResult`
+contains the full `LLMUsageReport`. Every observed attempt records its task,
+model, response ID, attempt number, and provider-reported token details. This
+includes both the primary and repair calls when structured validation requires
+a retry. Failed or cancelled attempts remain visible with unknown token usage
+when the provider supplies no terminal usage metadata.
+`usage_complete` is false when a provider omits usage for any observed call;
+`token_totals` sums only reported calls and is `None` when none were reported.
+Usage is operational telemetry and is not stored in canonical memory records.
+
+Answer generation is shaped for prompt-prefix caching independently of the
+background memory tasks. The provider receives one stable text block per
+bounded conversation record, with cache breakpoints after each record, followed
+by the changing retrieved-memory evidence as an unmarked suffix. A hashed key
+scoped to the user, session, and answer prompt improves cache routing without
+exposing canonical IDs to the model. The OpenRouter adapter renders the marked
+blocks as `cache_control` breakpoints and maps the hashed key to OpenRouter's
+sticky `session_id`; this preserves the best available routing and prefix shape
+without enabling whole-response caching. Provider-side cache support is still
+model dependent, so Gemma may legitimately report zero cached tokens. Set
+`FLUXMEM_OPENROUTER_PROMPT_CACHING=false` if its routed endpoint rejects or
+ignores explicit breakpoints. The separate OpenAI Responses adapter retains its
+GPT-5.6+ explicit-cache behavior for callers that use it directly.
+
+The reusable prefix becomes eligible only after it reaches the provider's
+minimum cacheable length. Bounded-history rollover or edits to prior rendered
+messages naturally start a new prefix. The default answer history now aligns
+its 128-message bound with turn retrieval and shares a 64,000-token estimated
+input budget with instructions and retrieved memories. No rolling summary or
+provider-side context compression is enabled. Inspect
+`cached_input_tokens` and `cache_write_input_tokens` by `LLMTaskKind.ANSWER` to
+measure real hit rates.
 
 Feedback, extraction, reconciliation, and individual memory writes report
 failures in `ConversationTurnResult` without discarding the persisted answer.
@@ -297,11 +363,12 @@ FLUXMEM_TEST_DATABASE_URL="postgresql+psycopg://.../fluxmem_test" \
   .venv/bin/python -m unittest tests.test_hybrid_retrieval_postgres -v
 ```
 
-The OpenAI adapter smoke test is also opt-in and performs one billed API call:
+The OpenRouter smoke test is opt-in. It loads `.env`, calls the configured free
+answer model once, and makes one small billed embedding request:
 
 ```bash
-OPENAI_API_KEY="..." FLUXMEM_TEST_OPENAI_MODEL="..." \
-  .venv/bin/python -m unittest tests.test_openai_llm_live -v
+FLUXMEM_TEST_OPENROUTER=1 \
+  .venv/bin/python -m unittest tests.test_openrouter_live -v
 ```
 
 Entity expansion, automatic conflict resolution, and historical query modes
