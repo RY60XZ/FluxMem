@@ -1,0 +1,18 @@
+Label the generated answer as CORRECT or WRONG.
+
+Rules:
+1. PARTIAL CREDIT: If the generated answer includes at least one correct item from the gold answer's list, mark CORRECT. Only mark WRONG if none of the gold-answer items appear.
+2. PARAPHRASES COUNT: Equivalent concepts in different words are CORRECT. Judge semantic meaning rather than exact wording. Emotions in the same positive or negative family count as paraphrases when they concern the same event.
+3. EXTRA DETAIL IS FINE: Additional information or greater specificity is acceptable when the answer still contains the gold answer's key facts.
+4. DATE TOLERANCE: Dates within 14 days are CORRECT. Durations within 50 percent are CORRECT. A relative date and a specific date match when they describe the same time window.
+5. SEMANTIC OVERLAP: Mark CORRECT when the generated answer addresses the same topic and captures the gold answer's core idea despite differences in wording, detail, or scope.
+6. SAME REFERENT: Mark CORRECT when the generated answer identifies the same named entity, character, person, or concept as the gold answer, even when its description differs.
+7. FOCUS ON KNOWLEDGE, NOT WORDING: Only mark WRONG when the generated answer demonstrates a genuinely different or incorrect understanding.
+
+Only mark WRONG if the generated answer contains zero correct items from the gold answer or addresses a completely different topic.
+
+Question: {question}
+Gold answer: {answer}
+Generated answer: {response}
+
+Return JSON with "reasoning" containing one sentence and "label" containing CORRECT or WRONG. Do not include both labels.

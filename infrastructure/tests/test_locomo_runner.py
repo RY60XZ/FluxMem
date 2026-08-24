@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -22,6 +23,10 @@ from fluxmem_infrastructure.locomo.dataset import (
     LocomoQuestion,
     LocomoSession,
     LocomoTurn,
+)
+from fluxmem_infrastructure.locomo.judge import (
+    LocomoJudgment,
+    LocomoJudgeLabel,
 )
 from fluxmem_infrastructure.locomo.runner import LocomoRunner
 
@@ -112,6 +117,18 @@ class _Answering:
         )
 
 
+class _Judge:
+    def judge(self, **values):
+        del values
+        return LocomoJudgment(
+            label=LocomoJudgeLabel.CORRECT,
+            reasoning="The prediction matches the reference answer.",
+            model="test-answerer",
+            response_id="judge-response",
+            usage=None,
+        )
+
+
 class LocomoRunnerTests(unittest.TestCase):
     def test_full_mode_writes_exactly_ten_conversation_artifacts(self) -> None:
         memory = _Memory()
@@ -124,37 +141,44 @@ class LocomoRunnerTests(unittest.TestCase):
             summary = LocomoRunner(
                 memory=memory,
                 answering=_Answering(memory),
+                judge=_Judge(),
                 output_dir=output,
                 dataset_path=root / "locomo.json",
                 dataset_sha256="fixture",
                 mode="all",
-                model_settings={"answer": "test"},
+                model_settings={"answer": "test", "judge": "test"},
                 run_id=UUID("00000000-0000-0000-0000-000000000001"),
             ).run(conversations)
             artifacts = tuple((output / "conversations").glob("*.json"))
+            artifact = json.loads(artifacts[0].read_text(encoding="utf-8"))
 
         self.assertEqual(summary["conversation_count"], 10)
         self.assertEqual(summary["question_count"], 10)
-        self.assertEqual(summary["answer_f1"], 1.0)
-        self.assertEqual(summary["evidence_recall"], 1.0)
+        self.assertEqual(summary["metrics"]["overall"]["accuracy"], 100.0)
         self.assertEqual(len(artifacts), 10)
         self.assertEqual(
-            {messages[0].agent_id for messages in memory.messages_by_user.values()},
-            {None},
-        )
-        self.assertEqual(
-            {messages[0].role for messages in memory.messages_by_user.values()},
-            {"conversation"},
-        )
-        self.assertTrue(
-            all(
-                messages[0].content
-                == (
-                    "[D1:1] Alice: I live in Toronto.\n"
-                    "[D1:2] Bob: That sounds great."
+            {
+                tuple(
+                    (message.role, message.agent_id, message.content)
+                    for message in messages
                 )
                 for messages in memory.messages_by_user.values()
-            )
+            },
+            {
+                (
+                    ("user", "Alice", "Alice: I live in Toronto."),
+                    ("assistant", "Bob", "Bob: That sounds great."),
+                )
+            },
+        )
+        question = artifact["question_results"][0]
+        self.assertEqual(question["prediction"], "Toronto")
+        self.assertEqual(question["answer"], "Toronto")
+        self.assertEqual(question["judgment"]["label"], "CORRECT")
+        self.assertEqual(question["judgment"]["model"], "test-answerer")
+        self.assertEqual(
+            question["retrieval"]["memories"][0]["content"],
+            "Alice lives in Toronto.",
         )
 
     def test_single_mode_uses_the_same_conversation_pipeline(self) -> None:
@@ -164,11 +188,12 @@ class LocomoRunnerTests(unittest.TestCase):
             summary = LocomoRunner(
                 memory=memory,
                 answering=_Answering(memory),
+                judge=_Judge(),
                 output_dir=root / "results",
                 dataset_path=root / "locomo.json",
                 dataset_sha256="fixture",
                 mode="single",
-                model_settings={"answer": "test"},
+                model_settings={"answer": "test", "judge": "test"},
             ).run((_conversation("conv-26"),))
 
         self.assertEqual(summary["conversation_count"], 1)
@@ -188,13 +213,11 @@ def _conversation(sample_id: str) -> LocomoConversation:
                 occurred_at=occurred_at,
                 turns=(
                     LocomoTurn(
-                        dia_id="D1:1",
                         speaker="Alice",
                         text="I live in Toronto.",
                         occurred_at=occurred_at,
                     ),
                     LocomoTurn(
-                        dia_id="D1:2",
                         speaker="Bob",
                         text="That sounds great.",
                         occurred_at=occurred_at,
@@ -207,7 +230,11 @@ def _conversation(sample_id: str) -> LocomoConversation:
                 question="Where does Alice live?",
                 answer="Toronto",
                 category=2,
-                evidence=("D1:1",),
+            ),
+            LocomoQuestion(
+                question="What did Alice not say?",
+                category=5,
+                adversarial_answer="She did not discuss Montreal.",
             ),
         ),
     )

@@ -9,6 +9,7 @@ from fluxmem import (
     MemoryRetrievalResult,
     Message,
     MessageIngestionResult,
+    MessagePack,
     ModelTokenUsage,
 )
 from fluxmem_infrastructure.answering.generator import AnswerGenerator
@@ -48,9 +49,16 @@ class AnswerTurnResult:
 class AnsweringAgent:
     """Example external agent composed solely through FluxMem's public API."""
 
-    def __init__(self, *, memory: FluxMem, generator: AnswerGenerator) -> None:
+    def __init__(
+        self,
+        *,
+        memory: FluxMem,
+        generator: AnswerGenerator,
+        include_history: bool = True,
+    ) -> None:
         self._memory = memory
         self._generator = generator
+        self._include_history = include_history
 
     def answer(
         self,
@@ -68,9 +76,17 @@ class AnsweringAgent:
             created_at=created_at,
             limit=retrieval_limit,
         )
-        history = self._memory.get_session_history(
-            user_id=user_id,
-            session_id=session_id,
+        history = (
+            self._memory.get_session_history(
+                user_id=user_id,
+                session_id=session_id,
+            )
+            if self._include_history
+            else MessagePack(
+                user_id=user_id,
+                session_id=session_id,
+                messages=(),
+            )
         )
         generated = self._generator.generate(
             query=retrieval.query,

@@ -67,8 +67,11 @@ class _Memory:
 
 
 class _Generator:
+    def __init__(self) -> None:
+        self.calls = []
+
     def generate(self, **values):
-        del values
+        self.calls.append(values)
         return GeneratedAnswer(
             content="Alice spoke.",
             context_memory_ids=(),
@@ -93,6 +96,26 @@ class AnsweringAgentTests(unittest.TestCase):
 
         self.assertEqual(result.answer.content, "Alice spoke.")
         self.assertEqual(memory.calls, ["retrieve", "history"])
+
+    def test_answer_can_exclude_stored_history(self) -> None:
+        user_id = uuid4()
+        session_id = uuid4()
+        memory = _Memory(user_id=user_id, session_id=session_id)
+        generator = _Generator()
+        agent = AnsweringAgent(
+            memory=memory,
+            generator=generator,
+            include_history=False,
+        )
+
+        agent.answer(
+            user_id=user_id,
+            session_id=session_id,
+            content="Who spoke?",
+        )
+
+        self.assertEqual(memory.calls, ["retrieve"])
+        self.assertEqual(generator.calls[0]["history"].messages, ())
 
     def test_run_turn_explicitly_composes_memory_mutations(self) -> None:
         user_id = uuid4()

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from fluxmem import LLMContextSettings
+from fluxmem import HybridRetrievalSettings
 from fluxmem_infrastructure.config import load_settings
 from fluxmem_infrastructure.locomo.dataset import (
     DEFAULT_DATA_PATH,
@@ -16,15 +16,13 @@ from fluxmem_infrastructure.locomo.dataset import (
     load_dataset,
     select_conversations,
 )
+from fluxmem_infrastructure.locomo.judge import LLMLocomoJudge
 from fluxmem_infrastructure.locomo.runner import LocomoRunner
 from fluxmem_infrastructure.runtime import bootstrap_from_env
 
 
-_LOCOMO_MEMORY_CONTEXT = LLMContextSettings(
-    maximum_history_messages=1,
-    maximum_write_history_messages=1,
-    maximum_write_history_characters=8_000,
-    maximum_write_message_content_characters=8_000,
+_LOCOMO_RETRIEVAL_SETTINGS = HybridRetrievalSettings(
+    max_query_messages=1,
 )
 
 
@@ -87,6 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings = load_settings(dotenv_path=arguments.dotenv)
         model_settings = {
             "answer": settings.answer_model,
+            "judge": settings.answer_model,
             "extraction": settings.extraction_model,
             "reconciliation": settings.reconciliation_model,
             "lifecycle": settings.lifecycle_model,
@@ -94,11 +93,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         with bootstrap_from_env(
             dotenv_path=arguments.dotenv,
-            memory_context_settings=_LOCOMO_MEMORY_CONTEXT,
+            retrieval_settings=_LOCOMO_RETRIEVAL_SETTINGS,
+            answer_with_history=False,
         ) as runtime:
             summary = LocomoRunner(
                 memory=runtime.memory,
                 answering=runtime.agent,
+                judge=LLMLocomoJudge(
+                    provider=runtime.model_provider,
+                    settings=runtime.settings.answer_model_settings(),
+                ),
                 output_dir=arguments.output,
                 dataset_path=data_path,
                 dataset_sha256=dataset_sha256(data_path),

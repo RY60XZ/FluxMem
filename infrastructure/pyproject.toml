@@ -13,9 +13,6 @@ dependencies = [
     "python-dotenv>=1.0,<2.0",
 ]
 
-[project.optional-dependencies]
-locomo = ["nltk>=3.9,<4.0"]
-
 [project.scripts]
 fluxmem-locomo = "fluxmem_infrastructure.locomo.cli:main"
 
@@ -24,3 +21,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "fluxmem_infrastructure.answering.prompts" = ["*.txt"]
+"fluxmem_infrastructure.locomo.prompts" = ["*.txt"]

@@ -7,10 +7,12 @@ from typing import Self
 
 from fluxmem import (
     FluxMem,
+    HybridRetrievalSettings,
     LLMContextSettings,
     LLMLifecycleEvaluator,
     LLMMemoryExtractor,
     LLMMemoryReconciler,
+    StructuredModelProvider,
     bootstrap,
 )
 from fluxmem_infrastructure.answering import AnswerGenerator, AnsweringAgent
@@ -27,6 +29,7 @@ class AnsweringRuntime:
 
     memory: FluxMem
     agent: AnsweringAgent
+    model_provider: StructuredModelProvider
     settings: InfrastructureSettings
 
     def __enter__(self) -> Self:
@@ -42,6 +45,8 @@ def bootstrap_from_env(
     dotenv_path: str | Path | None = ".env",
     environ: Mapping[str, str] | None = None,
     memory_context_settings: LLMContextSettings | None = None,
+    retrieval_settings: HybridRetrievalSettings | None = None,
+    answer_with_history: bool = True,
     **engine_options: object,
 ) -> AnsweringRuntime:
     settings = load_settings(dotenv_path=dotenv_path, environ=environ)
@@ -88,6 +93,7 @@ def bootstrap_from_env(
             else None
         ),
         embedding_provider=embedding_provider,
+        retrieval_settings=retrieval_settings,
         settings=settings.memory_settings(),
         **engine_options,
     )
@@ -98,6 +104,11 @@ def bootstrap_from_env(
     )
     return AnsweringRuntime(
         memory=memory,
-        agent=AnsweringAgent(memory=memory, generator=generator),
+        agent=AnsweringAgent(
+            memory=memory,
+            generator=generator,
+            include_history=answer_with_history,
+        ),
+        model_provider=provider,
         settings=settings,
     )

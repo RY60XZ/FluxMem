@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from statistics import fmean
 from time import perf_counter
 from typing import Any, Protocol
 from uuid import UUID, uuid4, uuid5
@@ -19,19 +18,17 @@ from fluxmem import (
 from fluxmem_infrastructure.answering import AnswerResult
 from fluxmem_infrastructure.locomo.artifacts import ArtifactWriter
 from fluxmem_infrastructure.locomo.dataset import (
+    CATEGORY_NAMES,
     EXPECTED_FULL_CONVERSATIONS,
     LOCOMO_DATASET_SHA256,
     LOCOMO_DATASET_URL,
     LOCOMO_LICENSE,
     LOCOMO_REVISION,
+    SCORABLE_CATEGORIES,
     LocomoConversation,
     LocomoTurn,
 )
-from fluxmem_infrastructure.locomo.scoring import (
-    CATEGORY_NAMES,
-    evidence_recall,
-    score_answer,
-)
+from fluxmem_infrastructure.locomo.judge import LocomoJudgment
 
 
 class MemoryService(Protocol):
@@ -63,6 +60,17 @@ class AnsweringService(Protocol):
     ) -> AnswerResult: ...
 
 
+class JudgeService(Protocol):
+    def judge(
+        self,
+        *,
+        category: int,
+        question: str,
+        ground_truth: str,
+        prediction: str,
+    ) -> LocomoJudgment: ...
+
+
 class LocomoRunner:
     """Run one or more selected LoCoMo conversations through one pipeline."""
 
@@ -71,6 +79,7 @@ class LocomoRunner:
         *,
         memory: MemoryService,
         answering: AnsweringService,
+        judge: JudgeService,
         output_dir: Path,
         dataset_path: Path,
         dataset_sha256: str,
@@ -83,6 +92,7 @@ class LocomoRunner:
             raise ValueError("LoCoMo mode must be 'all' or 'single'")
         self._memory = memory
         self._answering = answering
+        self._judge = judge
         self._artifacts = ArtifactWriter(output_dir)
         self._dataset_path = dataset_path
         self._dataset_sha256 = dataset_sha256
@@ -122,14 +132,21 @@ class LocomoRunner:
                         "Source-local timestamps represented with UTC offsets "
                         "for deterministic ordering"
                     ),
-                    "ingestion_granularity": "source_session",
+                    "ingestion_granularity": "source_turn",
+                    "role_convention": (
+                        "speaker_a=user, speaker_b=assistant"
+                    ),
+                    "evaluated_categories": sorted(SCORABLE_CATEGORIES),
                     "selected_conversation_count": len(conversations),
                     "selected_turn_count": sum(
                         len(conversation.turns)
                         for conversation in conversations
                     ),
                     "selected_question_count": sum(
-                        len(conversation.questions)
+                        sum(
+                            question.category in SCORABLE_CATEGORIES
+                            for question in conversation.questions
+                        )
                         for conversation in conversations
                     ),
                 },
@@ -182,41 +199,45 @@ class LocomoRunner:
         )
         self._memory.start_session(user_id=user_id, session_id=session_id)
 
-        dia_ids_by_message_id: dict[UUID, tuple[str, ...]] = {}
         ingestion_reports: list[LLMUsageReport] = []
         ingestion_errors: list[str] = []
         outcome_counts: Counter[str] = Counter()
         for source_session in conversation.sessions:
-            message_id = uuid5(
-                self._run_id,
-                "locomo:"
-                f"{conversation.sample_id}:session:{source_session.number}",
-            )
-            dia_ids_by_message_id[message_id] = tuple(
-                turn.dia_id for turn in source_session.turns
-            )
-            message = Message(
-                message_id=message_id,
-                session_id=session_id,
-                role="conversation",
-                agent_id=None,
-                content=_session_content(source_session.turns),
-                created_at=source_session.occurred_at,
-            )
-            imported = self._memory.ingest_messages(
-                user_id=user_id,
-                messages=(message,),
-            )
-            ingestion_reports.append(imported.llm_usage)
-            ingestion_errors.extend(imported.errors)
-            outcome_counts.update(
-                outcome.status.value for outcome in imported.memory_outcomes
-            )
+            for turn_index, turn in enumerate(source_session.turns):
+                message = _turn_message(
+                    run_id=self._run_id,
+                    conversation=conversation,
+                    session_id=session_id,
+                    source_session_number=source_session.number,
+                    turn_index=turn_index,
+                    turn=turn,
+                )
+                imported = self._memory.ingest_messages(
+                    user_id=user_id,
+                    messages=(message,),
+                )
+                ingestion_reports.append(imported.llm_usage)
+                ingestion_errors.extend(imported.errors)
+                outcome_counts.update(
+                    outcome.status.value
+                    for outcome in imported.memory_outcomes
+                )
 
         last_turn_at = conversation.sessions[-1].turns[-1].occurred_at
         question_results: list[dict[str, Any]] = []
         for question_index, question in enumerate(conversation.questions):
+            if question.category not in SCORABLE_CATEGORIES:
+                continue
             question_started = perf_counter()
+            prediction = ""
+            retrieval = {
+                "query": question.question,
+                "query_id": None,
+                "memories": [],
+            }
+            judgment = None
+            usage = _model_usage_dict(None)
+            error = None
             try:
                 result = self._answering.answer(
                     user_id=user_id,
@@ -225,49 +246,42 @@ class LocomoRunner:
                     created_at=last_turn_at + timedelta(seconds=1),
                 )
                 prediction = result.answer.content
-                retrieved_dia_ids = _retrieved_dia_ids(
-                    result=result,
-                    dia_ids_by_message_id=dia_ids_by_message_id,
-                )
-                answer_score = score_answer(
-                    prediction=prediction,
-                    ground_truth=question.answer,
-                    category=question.category,
-                )
-                recall = evidence_recall(
-                    expected=question.evidence,
-                    retrieved=retrieved_dia_ids,
-                )
-                error = None
+                retrieval = _retrieval_dict(result)
                 usage = _model_usage_dict(result.usage)
-            except Exception as query_error:
-                prediction = ""
-                retrieved_dia_ids = ()
-                answer_score = 0.0
-                recall = 0.0 if question.evidence else 1.0
-                error = _error_text(query_error)
-                usage = _model_usage_dict(None)
+            except Exception as answer_error:
+                error = f"answer: {_error_text(answer_error)}"
+
+            if error is None:
+                try:
+                    if question.answer is None:
+                        raise ValueError(
+                            "scorable LoCoMo question has no answer"
+                        )
+                    judged = self._judge.judge(
+                        category=question.category,
+                        question=question.question,
+                        ground_truth=question.answer,
+                        prediction=prediction,
+                    )
+                    judgment = _judgment_dict(judged)
+                except Exception as judge_error:
+                    error = f"judge: {_error_text(judge_error)}"
             question_results.append(
                 {
                     "index": question_index,
                     "question": question.question,
                     "answer": question.answer,
-                    "adversarial_answer": question.adversarial_answer,
                     "prediction": prediction,
                     "category": question.category,
                     "category_name": CATEGORY_NAMES[question.category],
-                    "evidence": list(question.evidence),
-                    "retrieved_dia_ids": list(retrieved_dia_ids),
-                    "answer_f1": answer_score,
-                    "evidence_recall": recall,
+                    "retrieval": retrieval,
+                    "judgment": judgment,
                     "latency_seconds": perf_counter() - question_started,
                     "usage": usage,
                     "error": error,
                 }
             )
 
-        scores = [row["answer_f1"] for row in question_results]
-        recalls = [row["evidence_recall"] for row in question_results]
         has_question_errors = any(
             row["error"] is not None for row in question_results
         )
@@ -285,44 +299,76 @@ class LocomoRunner:
             "source_session_count": len(conversation.sessions),
             "turn_count": len(conversation.turns),
             "question_count": len(question_results),
+            "metrics": _judge_metrics(question_results),
             "ingestion": {
                 "memory_outcome_counts": dict(sorted(outcome_counts.items())),
                 "errors": ingestion_errors,
                 "usage": _usage_dict(_combine_usage(ingestion_reports)),
             },
-            "answer_f1": fmean(scores) if scores else 0.0,
-            "evidence_recall": fmean(recalls) if recalls else 0.0,
             "latency_seconds": perf_counter() - conversation_started,
             "question_results": question_results,
         }
 
 
-def _retrieved_dia_ids(
+def _turn_message(
     *,
-    result: AnswerResult,
-    dia_ids_by_message_id: Mapping[UUID, tuple[str, ...]],
-) -> tuple[str, ...]:
-    context_ids = set(result.context_memory_ids)
-    source_ids: list[str] = []
-    seen: set[str] = set()
-    for retrieved in result.retrieval.context.memories:
-        if retrieved.memory.memory_id not in context_ids:
-            continue
-        for dia_id in dia_ids_by_message_id.get(
-            retrieved.memory.message_id,
-            (),
-        ):
-            if dia_id not in seen:
-                seen.add(dia_id)
-                source_ids.append(dia_id)
-    return tuple(source_ids)
-
-
-def _session_content(turns: Sequence[LocomoTurn]) -> str:
-    return "\n".join(
-        f"[{turn.dia_id}] {turn.speaker}: {turn.content}"
-        for turn in turns
+    run_id: UUID,
+    conversation: LocomoConversation,
+    session_id: UUID,
+    source_session_number: int,
+    turn_index: int,
+    turn: LocomoTurn,
+) -> Message:
+    return Message(
+        message_id=uuid5(
+            run_id,
+            f"locomo:{conversation.sample_id}:session:"
+            f"{source_session_number}:turn:{turn_index}",
+        ),
+        session_id=session_id,
+        role=(
+            "user"
+            if turn.speaker == conversation.speaker_a
+            else "assistant"
+        ),
+        agent_id=turn.speaker,
+        content=f"{turn.speaker}: {turn.content}",
+        created_at=turn.occurred_at,
     )
+
+
+def _retrieval_dict(result: AnswerResult) -> dict[str, Any]:
+    context_ids = set(result.context_memory_ids)
+    return {
+        "query": result.query.content,
+        "query_id": str(result.retrieval.query_id),
+        "memories": [
+            {
+                "memory_id": str(retrieved.memory.memory_id),
+                "source_message_id": str(retrieved.memory.message_id),
+                "content": retrieved.memory.content,
+                "rank": retrieved.rank,
+                "score": retrieved.score,
+                "retention": retrieved.retention,
+                "reasons": list(retrieved.retrieval_reasons),
+                "included_in_answer_context": (
+                    retrieved.memory.memory_id in context_ids
+                ),
+            }
+            for retrieved in result.retrieval.context.memories
+        ],
+    }
+
+
+def _judgment_dict(judgment: LocomoJudgment) -> dict[str, Any]:
+    return {
+        "label": judgment.label.value,
+        "score": judgment.score,
+        "reason": judgment.reasoning,
+        "model": judgment.model,
+        "response_id": judgment.response_id,
+        "usage": _model_usage_dict(judgment.usage),
+    }
 
 
 def _combine_usage(reports: Sequence[LLMUsageReport]) -> LLMUsageReport:
@@ -385,11 +431,6 @@ def _summarize_run(
         for row in result.get("question_results", [])
         if isinstance(row, dict)
     ]
-    scores_by_category: defaultdict[int, list[float]] = defaultdict(list)
-    for row in rows:
-        scores_by_category[int(row["category"])].append(
-            float(row["answer_f1"])
-        )
     failed = [
         str(result["sample_id"])
         for result in results
@@ -415,25 +456,38 @@ def _summarize_run(
         "question_error_count": sum(
             row.get("error") is not None for row in rows
         ),
-        "answer_f1": (
-            fmean(float(row["answer_f1"]) for row in rows) if rows else 0.0
-        ),
-        "evidence_recall": (
-            fmean(float(row["evidence_recall"]) for row in rows)
-            if rows
-            else 0.0
-        ),
-        "categories": {
-            str(category): {
-                "name": CATEGORY_NAMES[category],
-                "question_count": len(scores_by_category.get(category, [])),
-                "answer_f1": (
-                    fmean(scores_by_category[category])
-                    if scores_by_category.get(category)
-                    else 0.0
-                ),
-            }
-            for category in sorted(CATEGORY_NAMES)
+        "metrics": _judge_metrics(rows),
+    }
+
+
+def _judge_metrics(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    def score(row: Mapping[str, Any]) -> float:
+        judgment = row.get("judgment")
+        if not isinstance(judgment, Mapping):
+            return 0.0
+        value = judgment.get("score")
+        return float(value) if isinstance(value, (int, float)) else 0.0
+
+    def metrics(selected: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        scores = [score(row) for row in selected]
+        correct = sum(value >= 0.5 for value in scores)
+        total = len(selected)
+        return {
+            "total": total,
+            "judged": sum(
+                isinstance(row.get("judgment"), Mapping) for row in selected
+            ),
+            "correct": correct,
+            "accuracy": correct / total * 100 if total else 0.0,
+        }
+
+    return {
+        "overall": metrics(rows),
+        "by_category": {
+            CATEGORY_NAMES[category]: metrics(
+                [row for row in rows if row.get("category") == category]
+            )
+            for category in sorted(SCORABLE_CATEGORIES)
         },
     }
 

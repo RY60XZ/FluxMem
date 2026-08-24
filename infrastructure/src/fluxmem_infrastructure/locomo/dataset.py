@@ -23,23 +23,39 @@ EXPECTED_FULL_CONVERSATIONS = 10
 DEFAULT_DATA_PATH = Path(".cache/locomo/locomo10.json")
 _SESSION_KEY = re.compile(r"session_(\d+)")
 _DATE_FORMAT = "%I:%M %p on %d %B, %Y"
+CATEGORY_NAMES = {
+    1: "multi-hop",
+    2: "temporal",
+    3: "open-domain",
+    4: "single-hop",
+    5: "adversarial",
+}
+SCORABLE_CATEGORIES = frozenset({1, 2, 3, 4})
 
 
 @dataclass(frozen=True, slots=True)
 class LocomoTurn:
-    dia_id: str
     speaker: str
     text: str
     occurred_at: datetime
     caption: str | None = None
+    image_query: str | None = None
 
     @property
     def content(self) -> str:
-        if self.caption is None:
+        image = None
+        if self.image_query is not None and self.caption is not None:
+            image = (
+                f"[Sharing image - query: {self.image_query}. "
+                f"The image shows: {self.caption}]"
+            )
+        elif self.image_query is not None:
+            image = f"[Sharing image - query for: {self.image_query}]"
+        elif self.caption is not None:
+            image = f"[Sharing image that shows: {self.caption}]"
+        if image is None:
             return self.text
-        if self.text:
-            return f"{self.text}\n[Image caption: {self.caption}]"
-        return f"[Image caption: {self.caption}]"
+        return f"{self.text} {image}" if self.text else image
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +69,6 @@ class LocomoSession:
 class LocomoQuestion:
     question: str
     category: int
-    evidence: tuple[str, ...]
     answer: str | None = None
     adversarial_answer: str | None = None
 
@@ -172,7 +187,6 @@ def _parse_conversation(value: object, *, index: int) -> LocomoConversation:
     if session_numbers != list(range(1, session_numbers[-1] + 1)):
         raise ValueError(f"{sample_id} session numbers must be contiguous")
 
-    seen_dia_ids: set[str] = set()
     sessions: list[LocomoSession] = []
     for number in session_numbers:
         date_field = f"session_{number}_date_time"
@@ -191,29 +205,34 @@ def _parse_conversation(value: object, *, index: int) -> LocomoConversation:
                 raw_turn,
                 context=f"{sample_id}.session_{number}[{turn_index}]",
             )
-            dia_id = _nonblank_string(
-                turn.get("dia_id"), field=f"{sample_id}.dia_id"
-            )
-            if dia_id in seen_dia_ids:
-                raise ValueError(f"{sample_id} contains duplicate {dia_id}")
-            seen_dia_ids.add(dia_id)
             speaker = _nonblank_string(
-                turn.get("speaker"), field=f"{sample_id}.{dia_id}.speaker"
+                turn.get("speaker"),
+                field=(
+                    f"{sample_id}.session_{number}[{turn_index}].speaker"
+                ),
             )
             if speaker not in (speaker_a, speaker_b):
                 raise ValueError(
-                    f"{sample_id}.{dia_id} uses unknown speaker {speaker!r}"
+                    f"{sample_id}.session_{number}[{turn_index}] uses "
+                    f"unknown speaker {speaker!r}"
                 )
-            text = _string(turn.get("text"), field=f"{sample_id}.{dia_id}.text")
+            text = _string(
+                turn.get("text"),
+                field=f"{sample_id}.session_{number}[{turn_index}].text",
+            )
             caption = _optional_nonblank_string(turn.get("blip_caption"))
-            if not text.strip() and caption is None:
-                raise ValueError(f"{sample_id}.{dia_id} has no usable content")
+            image_query = _optional_nonblank_string(turn.get("query"))
+            if not text.strip() and caption is None and image_query is None:
+                raise ValueError(
+                    f"{sample_id}.session_{number}[{turn_index}] has no "
+                    "usable content"
+                )
             turns.append(
                 LocomoTurn(
-                    dia_id=dia_id,
                     speaker=speaker,
                     text=text.strip(),
                     caption=caption,
+                    image_query=image_query,
                     occurred_at=occurred_at + timedelta(seconds=turn_index),
                 )
             )
@@ -251,13 +270,8 @@ def _parse_question(
     category = item.get("category")
     if isinstance(category, bool) or not isinstance(category, int):
         raise TypeError(f"{sample_id}.qa[{index}].category must be an integer")
-    if category not in {1, 2, 3, 4, 5}:
+    if category not in CATEGORY_NAMES:
         raise ValueError(f"{sample_id}.qa[{index}] has invalid category")
-    evidence = item.get("evidence")
-    if not isinstance(evidence, list) or not all(
-        isinstance(entry, str) and entry.strip() for entry in evidence
-    ):
-        raise TypeError(f"{sample_id}.qa[{index}].evidence must be strings")
     answer = _optional_answer(item.get("answer"))
     adversarial_answer = _optional_string(item.get("adversarial_answer"))
     if category != 5 and answer is None:
@@ -267,7 +281,6 @@ def _parse_question(
             item.get("question"), field=f"{sample_id}.qa[{index}].question"
         ),
         category=category,
-        evidence=tuple(entry.strip() for entry in evidence),
         answer=answer,
         adversarial_answer=adversarial_answer,
     )

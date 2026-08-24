@@ -57,7 +57,7 @@ answering agent, concrete OpenRouter providers, environment configuration, and
 the LoCoMo harness can consume FluxMem without entering the core package.
 
 ```bash
-.venv/bin/pip install -e './infrastructure[locomo]'
+.venv/bin/pip install -e ./infrastructure
 cp .env.example .env
 fluxmem-locomo run --all --output benchmark-runs/full
 fluxmem-locomo run --conversation conv-26 --output benchmark-runs/conv-26

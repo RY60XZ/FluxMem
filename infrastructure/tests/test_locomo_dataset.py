@@ -23,13 +23,12 @@ class LocomoDatasetTests(unittest.TestCase):
                     "session_1": [
                         {
                             "speaker": "Alice",
-                            "dia_id": "D1:1",
                             "text": "Look at this.",
                             "blip_caption": "a red bicycle",
+                            "query": "red bicycle",
                         },
                         {
                             "speaker": "Bob",
-                            "dia_id": "D1:2",
                             "text": "Nice bicycle.",
                         },
                     ],
@@ -39,7 +38,6 @@ class LocomoDatasetTests(unittest.TestCase):
                         "question": "How many bicycles?",
                         "answer": 1,
                         "category": 2,
-                        "evidence": ["D1:1"],
                     }
                 ],
             }
@@ -53,7 +51,10 @@ class LocomoDatasetTests(unittest.TestCase):
         self.assertEqual(conversation.questions[0].answer, "1")
         self.assertEqual(
             conversation.sessions[0].turns[0].content,
-            "Look at this.\n[Image caption: a red bicycle]",
+            (
+                "Look at this. [Sharing image - query: red bicycle. "
+                "The image shows: a red bicycle]"
+            ),
         )
         self.assertLess(
             conversation.sessions[0].turns[0].occurred_at,
@@ -91,7 +92,7 @@ def _minimal_conversation_payload(sample_id: str) -> dict[str, object]:
             "speaker_b": "Bob",
             "session_1_date_time": "1:56 pm on 8 May, 2023",
             "session_1": [
-                {"speaker": "Alice", "dia_id": "D1:1", "text": "Hello"}
+                {"speaker": "Alice", "text": "Hello"}
             ],
         },
         "qa": [
@@ -99,7 +100,6 @@ def _minimal_conversation_payload(sample_id: str) -> dict[str, object]:
                 "question": "Who spoke?",
                 "answer": "Alice",
                 "category": 2,
-                "evidence": ["D1:1"],
             }
         ],
     }

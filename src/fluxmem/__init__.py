@@ -25,6 +25,7 @@ from fluxmem.application.ports.llm import (
     StructuredModelProvider,
     StructuredModelResponse,
 )
+from fluxmem.application.read import HybridRetrievalSettings
 from fluxmem.bootstrap import MemoryLayerSettings, bootstrap
 from fluxmem.diagnostics import diagnostics_to_dict
 from fluxmem.domain.info_pack import (
@@ -53,6 +54,7 @@ __all__ = (
     "EMBEDDING_DIMENSIONS",
     "Embedding",
     "FluxMem",
+    "HybridRetrievalSettings",
     "LLMContextSettings",
     "LLMLifecycleEvaluator",
     "LLMMemoryExtractor",
