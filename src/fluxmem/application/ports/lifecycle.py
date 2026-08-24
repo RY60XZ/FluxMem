@@ -11,6 +11,10 @@ from fluxmem.domain.lifecycle import LifecycleDecision
 from fluxmem.domain.memory import Memory
 
 
+class LifecycleEvaluationError(RuntimeError):
+    """A lifecycle evaluator could not produce a usable semantic decision."""
+
+
 class LifecycleEvaluator(Protocol):
     def evaluate(
         self,

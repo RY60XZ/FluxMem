@@ -143,6 +143,7 @@ class OpenAIResponsesProvider:
         def chunks() -> Iterator[str]:
             stream = None
             received_text = False
+            completed = False
             try:
                 request_client = self._client
                 if hasattr(request_client, "with_options"):
@@ -169,13 +170,27 @@ class OpenAIResponsesProvider:
                         if isinstance(delta, str) and delta:
                             received_text = True
                             yield delta
-                    elif event_type in {
-                        "response.completed",
-                        "response.incomplete",
-                    }:
+                    elif event_type == "response.completed":
                         completed_response = getattr(event, "response", None)
                         if completed_response is not None:
                             result.record_completion(completed_response)
+                        completed = True
+                    elif event_type == "response.incomplete":
+                        incomplete_response = getattr(event, "response", None)
+                        if incomplete_response is not None:
+                            result.record_completion(incomplete_response)
+                        reason = _field(
+                            _field(incomplete_response, "incomplete_details"),
+                            "reason",
+                        )
+                        detail = (
+                            f": {reason}"
+                            if isinstance(reason, str) and reason.strip()
+                            else ""
+                        )
+                        raise ModelProviderError(
+                            f"OpenAI response was incomplete{detail}"
+                        )
                     elif event_type in {"error", "response.failed"}:
                         failed_response = getattr(event, "response", None)
                         if failed_response is not None:
@@ -199,6 +214,10 @@ class OpenAIResponsesProvider:
             if not received_text:
                 raise ModelProviderError(
                     "OpenAI response contained no output text"
+                )
+            if not completed:
+                raise ModelProviderError(
+                    "OpenAI response ended without a completion event"
                 )
 
         result = _OpenAITextStream(chunks=chunks(), model=model)

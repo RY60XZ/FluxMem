@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fluxmem.domain.conflict import ConflictProposal
 from fluxmem.domain.info_pack import MemoryPack, TurnMemoryPacks
-from fluxmem.domain.memory import Memory
+from fluxmem.domain.memory import Memory, validate_memory_fields
 from fluxmem.domain.message import Message
 
 
@@ -185,14 +185,11 @@ class ProposedMemory:
     valid_to: datetime | None = None
 
     def __post_init__(self) -> None:
-        if not self.content.strip():
-            raise ValueError("proposed memory cannot be blank")
-        if (
-            self.valid_from is not None
-            and self.valid_to is not None
-            and self.valid_from > self.valid_to
-        ):
-            raise ValueError("memory validity cannot end before it begins")
+        validate_memory_fields(
+            content=self.content,
+            valid_from=self.valid_from,
+            valid_to=self.valid_to,
+        )
 
 
 class ReconciliationAction(StrEnum):

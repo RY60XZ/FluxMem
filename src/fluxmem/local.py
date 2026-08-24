@@ -26,7 +26,7 @@ DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 class LocalRuntimeSettings:
     """Validated local configuration without exposing secrets in repr output."""
 
-    database_url: str
+    database_url: str = field(repr=False)
     openrouter_api_key: str = field(repr=False)
     answer_model: str = DEFAULT_OPENROUTER_MODEL
     extraction_model: str = DEFAULT_OPENROUTER_MODEL

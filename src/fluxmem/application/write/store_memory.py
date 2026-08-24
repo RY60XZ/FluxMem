@@ -17,7 +17,10 @@ from fluxmem.application.ports.embeddings import (
     EmbeddingProvider,
     EmbeddingProviderError,
 )
-from fluxmem.application.ports.lifecycle import LifecycleEvaluator
+from fluxmem.application.ports.lifecycle import (
+    LifecycleEvaluationError,
+    LifecycleEvaluator,
+)
 from fluxmem.application.ports.llm import (
     ModelDiagnosticsRecorder,
     ModelUsageRecorder,
@@ -222,14 +225,7 @@ class StoreMemory:
                 usage_recorder=usage_recorder,
                 diagnostics_recorder=diagnostics_recorder,
             )
-            return self._lifecycle_policy.initialize(
-                memory=memory,
-                decision=decision,
-                initialized_at=initialized_at,
-            )
-        except Exception:
-            if isinstance(self._lifecycle_evaluator, RuleLifecycleEvaluator):
-                raise
+        except LifecycleEvaluationError:
             decision = self._fallback_evaluator.evaluate(
                 memory=memory,
                 source_role=source_role,
@@ -237,8 +233,8 @@ class StoreMemory:
                 usage_recorder=usage_recorder,
                 diagnostics_recorder=diagnostics_recorder,
             )
-            return self._lifecycle_policy.initialize(
-                memory=memory,
-                decision=decision,
-                initialized_at=initialized_at,
-            )
+        return self._lifecycle_policy.initialize(
+            memory=memory,
+            decision=decision,
+            initialized_at=initialized_at,
+        )

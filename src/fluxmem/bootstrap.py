@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Self
+from uuid import UUID
 
 from sqlalchemy import Engine
 
@@ -16,21 +18,26 @@ from fluxmem.application.llm import (
     LLMMemoryExtractor,
     LLMMemoryReconciler,
 )
+from fluxmem.application.ports.embeddings import EmbeddingProvider
+from fluxmem.application.ports.lifecycle import LifecycleEvaluator
 from fluxmem.application.ports.llm import ModelProvider
-from fluxmem.application.process_turn import ProcessConversationTurn
+from fluxmem.application.process_turn import (
+    ConversationTurnStream,
+    ProcessConversationTurn,
+)
 from fluxmem.application.read.retrieval import (
     HybridRetrievalSettings,
     RetrievalForAdding,
     RetrievalForAnswering,
 )
 from fluxmem.application.read.session_history import GetSessionHistory
-from fluxmem.application.ports.lifecycle import LifecycleEvaluator
-from fluxmem.application.ports.embeddings import EmbeddingProvider
+from fluxmem.application.write.create_session import CreateSession
 from fluxmem.application.write.reinforcement import ReinforceMemory
 from fluxmem.application.write.reindex_memories import ReindexPendingMemories
-from fluxmem.application.write.create_session import CreateSession
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.application.write.store_message import StoreMessage
+from fluxmem.domain.llm import ConversationTurnResult
+from fluxmem.domain.message import Session
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +54,67 @@ class FluxMemServices:
     reinforce_memory: ReinforceMemory
     reindex_pending_memories: ReindexPendingMemories | None
     process_turn: ProcessConversationTurn | None
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: object,
+    ) -> None:
+        del exc_type, exc_value, traceback
+        self.close()
+
+    def start_session(self, *, user_id: UUID) -> Session:
+        """Create a conversation session for one application-owned user ID."""
+
+        return self.create_session.execute(user_id=user_id)
+
+    def stream_turn(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID,
+        content: str,
+        agent_id: str | None = None,
+        diagnostics: bool = False,
+    ) -> ConversationTurnStream:
+        """Begin one plain-text turn through the configured model stack."""
+
+        if self.process_turn is None:
+            raise RuntimeError("conversation processing is not configured")
+        return self.process_turn.execute_text(
+            user_id=user_id,
+            session_id=session_id,
+            content=content,
+            agent_id=agent_id,
+            diagnostics=diagnostics,
+        )
+
+    def run_turn(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID,
+        content: str,
+        agent_id: str | None = None,
+        diagnostics: bool = False,
+        timeout: float | None = None,
+    ) -> ConversationTurnResult:
+        """Complete one text turn and wait for its post-answer memory work."""
+
+        stream = self.stream_turn(
+            user_id=user_id,
+            session_id=session_id,
+            content=content,
+            agent_id=agent_id,
+            diagnostics=diagnostics,
+        )
+        for _ in stream:
+            pass
+        return stream.wait_for_post_answer(timeout=timeout)
 
     def close(self) -> None:
         if self.process_turn is not None:

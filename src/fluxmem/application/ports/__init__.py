@@ -4,6 +4,7 @@ from fluxmem.application.ports.embeddings import (
     EmbeddingProvider,
     EmbeddingProviderError,
 )
+from fluxmem.application.ports.lifecycle import LifecycleEvaluationError
 from fluxmem.application.ports.llm import (
     AnswerGenerator,
     InvalidModelOutputError,
@@ -26,6 +27,7 @@ __all__ = (
     "EmbeddingProvider",
     "EmbeddingProviderError",
     "InvalidModelOutputError",
+    "LifecycleEvaluationError",
     "MemoryExtractor",
     "MemoryReconciler",
     "ModelDiagnosticsRecorder",

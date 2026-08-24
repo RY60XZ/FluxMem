@@ -184,6 +184,7 @@ class OpenRouterChatCompletionsProvider:
         def chunks() -> Iterator[str]:
             stream = None
             received_text = False
+            finish_reason: str | None = None
             try:
                 request_client = self._request_client(timeout_seconds)
                 request: dict[str, object] = {
@@ -204,6 +205,9 @@ class OpenRouterChatCompletionsProvider:
                 stream = request_client.chat.completions.create(**request)
                 for chunk in stream:
                     result.record_chunk(chunk)
+                    chunk_finish_reason = _completion_finish_reason(chunk)
+                    if chunk_finish_reason is not None:
+                        finish_reason = chunk_finish_reason
                     delta = _completion_delta_text(chunk)
                     if delta:
                         received_text = True
@@ -228,6 +232,12 @@ class OpenRouterChatCompletionsProvider:
             if not received_text:
                 raise ModelProviderError(
                     "OpenRouter response contained no output text"
+                )
+            if finish_reason != "stop":
+                detail = finish_reason or "missing"
+                raise ModelProviderError(
+                    "OpenRouter response did not complete normally: "
+                    f"finish_reason={detail}"
                 )
 
         result = _OpenRouterTextStream(chunks=chunks(), model=model)
@@ -292,6 +302,16 @@ def _completion_delta_text(chunk: object) -> str:
         return ""
     delta = _field(choices[0], "delta")
     return _content_text(_field(delta, "content"))
+
+
+def _completion_finish_reason(chunk: object) -> str | None:
+    choices = _field(chunk, "choices")
+    if not isinstance(choices, (list, tuple)) or not choices:
+        return None
+    reason = _field(choices[0], "finish_reason")
+    if isinstance(reason, str) and reason.strip():
+        return reason
+    return None
 
 
 def _content_text(content: object) -> str:

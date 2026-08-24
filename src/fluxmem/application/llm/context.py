@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from math import ceil
 from typing import Protocol
 from uuid import UUID
@@ -106,6 +107,23 @@ class ApproximateTokenCounter:
         if not text:
             return 0
         return ceil(len(text.encode("utf-8")) / self.utf8_bytes_per_token)
+
+
+def format_prompt_timestamp(value: datetime) -> str:
+    """Render one instant as concise, human-readable UTC prompt context."""
+
+    if value.utcoffset() is None:
+        raise ValueError("prompt timestamps must include a timezone")
+    normalized = value.astimezone(timezone.utc)
+    clock = normalized.strftime("%H:%M")
+    if normalized.second or normalized.microsecond:
+        clock = normalized.strftime("%H:%M:%S")
+    if normalized.microsecond:
+        clock += f".{normalized.microsecond:06d}"
+    return (
+        f"{normalized.strftime('%B')} {normalized.day}, {normalized.year} "
+        f"at {clock} UTC"
+    )
 
 
 def _clip(value: str, *, limit: int) -> str:
@@ -249,7 +267,7 @@ def render_messages(
                 if maximum_content_characters is not None
                 else message.content
             ),
-            "created_at": message.created_at.isoformat(),
+            "created_at": format_prompt_timestamp(message.created_at),
         }
         if use_character_budget:
             record = _bounded_json_line(
@@ -318,16 +336,16 @@ def render_memory_pack(
                 limit=settings.maximum_memory_content_characters,
             ),
             "valid_from": (
-                memory.valid_from.isoformat()
+                format_prompt_timestamp(memory.valid_from)
                 if memory.valid_from is not None
                 else None
             ),
             "valid_to": (
-                memory.valid_to.isoformat()
+                format_prompt_timestamp(memory.valid_to)
                 if memory.valid_to is not None
                 else None
             ),
-            "created_at": memory.created_at.isoformat(),
+            "created_at": format_prompt_timestamp(memory.created_at),
         }
         if include_references:
             semantic_record = {
