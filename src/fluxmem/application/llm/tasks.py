@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fluxmem.application.lifecycle import tier_for_importance
 from fluxmem.application.llm.context import (
+    IdReferenceMap,
     LLMContextSettings,
     format_prompt_timestamp,
     render_memory_pack,
@@ -17,7 +18,10 @@ from fluxmem.application.llm.prompt_loader import (
     load_prompt,
     render_repair_prompt,
 )
-from fluxmem.application.ports.lifecycle import LifecycleEvaluationError
+from fluxmem.application.ports.lifecycle import (
+    LifecycleEvaluationError,
+    LifecycleEvaluationInput,
+)
 from fluxmem.application.ports.llm import (
     InvalidModelOutputError,
     ModelDiagnosticsRecorder,
@@ -810,79 +814,150 @@ class LLMMemoryReconciler(_StructuredTask):
 _LIFECYCLE_SCHEMA: Mapping[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": [
-        "importance",
-        "reason_codes",
-        "confidence",
-    ],
+    "required": ["decisions"],
     "properties": {
-        "importance": {"type": "number"},
-        "reason_codes": {
+        "decisions": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "memory_ref",
+                    "importance",
+                    "reason_codes",
+                    "confidence",
+                ],
+                "properties": {
+                    "memory_ref": {"type": "integer"},
+                    "importance": {"type": "number"},
+                    "reason_codes": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "confidence": {"type": "number"},
+                },
+            },
         },
-        "confidence": {"type": "number"},
     },
 }
 
 
 class LLMLifecycleEvaluator(_StructuredTask):
-    def evaluate(
+    def evaluate_many(
         self,
         *,
-        memory: Memory,
-        source_role: str,
+        items: tuple[LifecycleEvaluationInput, ...],
         evaluated_at: datetime,
         usage_recorder: ModelUsageRecorder | None = None,
         diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
-    ) -> LifecycleDecision:
+    ) -> tuple[LifecycleDecision | None, ...]:
+        if not items:
+            return ()
+        references = IdReferenceMap(
+            tuple(item.memory.memory_id for item in items)
+        )
         input_text = json.dumps(
             {
-                "content": memory.content,
-                "source_role": source_role,
-                "session_limited": memory.session_applicability is not None,
-                "valid_from": (
-                    format_prompt_timestamp(memory.valid_from)
-                    if memory.valid_from is not None
-                    else None
-                ),
-                "valid_to": (
-                    format_prompt_timestamp(memory.valid_to)
-                    if memory.valid_to is not None
-                    else None
-                ),
+                "memories": [
+                    {
+                        "memory_ref": reference,
+                        "content": item.memory.content,
+                        "source_role": item.source_role,
+                        "session_limited": (
+                            item.memory.session_applicability is not None
+                        ),
+                        "valid_from": (
+                            format_prompt_timestamp(item.memory.valid_from)
+                            if item.memory.valid_from is not None
+                            else None
+                        ),
+                        "valid_to": (
+                            format_prompt_timestamp(item.memory.valid_to)
+                            if item.memory.valid_to is not None
+                            else None
+                        ),
+                    }
+                    for reference, item in enumerate(items, start=1)
+                ],
                 "evaluated_at": format_prompt_timestamp(evaluated_at),
             },
             separators=(",", ":"),
         )
 
-        def validate(value: Mapping[str, Any], attempt: int) -> LifecycleDecision:
+        def validate(
+            value: Mapping[str, Any],
+            attempt: int,
+        ) -> tuple[LifecycleDecision | None, ...]:
             _require_exact_keys(
                 value,
-                expected={
-                    "importance",
-                    "reason_codes",
-                    "confidence",
-                },
-                object_name="lifecycle result",
+                expected={"decisions"},
+                object_name="lifecycle batch result",
             )
-            importance = _number(value["importance"], field="importance")
-            reasons = value["reason_codes"]
-            if not isinstance(reasons, list) or not all(
-                isinstance(reason, str) and reason.strip() for reason in reasons
-            ):
-                raise TypeError("reason_codes must be non-empty strings")
-            return LifecycleDecision(
-                importance=importance,
-                tier=tier_for_importance(importance),
-                initial_retention=importance,
-                reason_codes=tuple(reason.strip() for reason in reasons),
-                confidence=_number(value["confidence"], field="confidence"),
-                decision_source=(
-                    DecisionSource.LLM_PRIMARY
-                    if attempt == 1
-                    else DecisionSource.LLM_RETRY
-                ),
+            raw_decisions = value["decisions"]
+            if not isinstance(raw_decisions, list):
+                raise TypeError("lifecycle decisions must be an array")
+            decisions: dict[int, LifecycleDecision] = {}
+            invalid_references: set[int] = set()
+            seen_references: set[int] = set()
+            for raw in raw_decisions:
+                if not isinstance(raw, Mapping):
+                    continue
+                reference = raw.get("memory_ref")
+                try:
+                    references.id_for(reference, field="memory_ref")
+                except (TypeError, ValueError):
+                    continue
+                assert isinstance(reference, int)
+                if reference in seen_references:
+                    invalid_references.add(reference)
+                    decisions.pop(reference, None)
+                    continue
+                seen_references.add(reference)
+                try:
+                    _require_exact_keys(
+                        raw,
+                        expected={
+                            "memory_ref",
+                            "importance",
+                            "reason_codes",
+                            "confidence",
+                        },
+                        object_name="lifecycle decision",
+                    )
+                    importance = _number(
+                        raw["importance"], field="importance"
+                    )
+                    reasons = raw["reason_codes"]
+                    if not isinstance(reasons, list) or not all(
+                        isinstance(reason, str) and reason.strip()
+                        for reason in reasons
+                    ):
+                        raise TypeError(
+                            "reason_codes must be non-empty strings"
+                        )
+                    decisions[reference] = LifecycleDecision(
+                        importance=importance,
+                        tier=tier_for_importance(importance),
+                        initial_retention=importance,
+                        reason_codes=tuple(
+                            reason.strip() for reason in reasons
+                        ),
+                        confidence=_number(
+                            raw["confidence"], field="confidence"
+                        ),
+                        decision_source=(
+                            DecisionSource.LLM_PRIMARY
+                            if attempt == 1
+                            else DecisionSource.LLM_RETRY
+                        ),
+                    )
+                except (KeyError, TypeError, ValueError):
+                    invalid_references.add(reference)
+            return tuple(
+                decisions.get(reference)
+                if reference not in invalid_references
+                else None
+                for reference in range(1, len(items) + 1)
             )
 
         try:
@@ -890,12 +965,12 @@ class LLMLifecycleEvaluator(_StructuredTask):
                 task=LLMTaskKind.LIFECYCLE,
                 instructions=load_prompt("lifecycle_evaluation"),
                 input_text=input_text,
-                schema_name="fluxmem_lifecycle_decision",
+                schema_name="fluxmem_lifecycle_decisions",
                 schema=_LIFECYCLE_SCHEMA,
                 validator=validate,
                 usage_recorder=usage_recorder,
                 diagnostics_recorder=diagnostics_recorder,
-                supplied_memory_ids=(memory.memory_id,),
+                supplied_memory_ids=references.ids,
             )
         except ModelProviderError as error:
             raise LifecycleEvaluationError(

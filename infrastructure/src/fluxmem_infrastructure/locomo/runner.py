@@ -25,6 +25,7 @@ from fluxmem_infrastructure.locomo.dataset import (
     LOCOMO_LICENSE,
     LOCOMO_REVISION,
     LocomoConversation,
+    LocomoTurn,
 )
 from fluxmem_infrastructure.locomo.scoring import (
     CATEGORY_NAMES,
@@ -121,6 +122,7 @@ class LocomoRunner:
                         "Source-local timestamps represented with UTC offsets "
                         "for deterministic ordering"
                     ),
+                    "ingestion_granularity": "source_session",
                     "selected_conversation_count": len(conversations),
                     "selected_turn_count": sum(
                         len(conversation.turns)
@@ -180,35 +182,30 @@ class LocomoRunner:
         )
         self._memory.start_session(user_id=user_id, session_id=session_id)
 
-        dia_id_by_message_id: dict[UUID, str] = {}
+        dia_ids_by_message_id: dict[UUID, tuple[str, ...]] = {}
         ingestion_reports: list[LLMUsageReport] = []
         ingestion_errors: list[str] = []
         outcome_counts: Counter[str] = Counter()
         for source_session in conversation.sessions:
-            messages: list[Message] = []
-            for turn in source_session.turns:
-                message_id = uuid5(
-                    self._run_id,
-                    f"locomo:{conversation.sample_id}:message:{turn.dia_id}",
-                )
-                dia_id_by_message_id[message_id] = turn.dia_id
-                messages.append(
-                    Message(
-                        message_id=message_id,
-                        session_id=session_id,
-                        role=(
-                            "user"
-                            if turn.speaker == conversation.speaker_a
-                            else "assistant"
-                        ),
-                        agent_id=turn.speaker,
-                        content=turn.content,
-                        created_at=turn.occurred_at,
-                    )
-                )
+            message_id = uuid5(
+                self._run_id,
+                "locomo:"
+                f"{conversation.sample_id}:session:{source_session.number}",
+            )
+            dia_ids_by_message_id[message_id] = tuple(
+                turn.dia_id for turn in source_session.turns
+            )
+            message = Message(
+                message_id=message_id,
+                session_id=session_id,
+                role="conversation",
+                agent_id=None,
+                content=_session_content(source_session.turns),
+                created_at=source_session.occurred_at,
+            )
             imported = self._memory.ingest_messages(
                 user_id=user_id,
-                messages=messages,
+                messages=(message,),
             )
             ingestion_reports.append(imported.llm_usage)
             ingestion_errors.extend(imported.errors)
@@ -230,7 +227,7 @@ class LocomoRunner:
                 prediction = result.answer.content
                 retrieved_dia_ids = _retrieved_dia_ids(
                     result=result,
-                    dia_id_by_message_id=dia_id_by_message_id,
+                    dia_ids_by_message_id=dia_ids_by_message_id,
                 )
                 answer_score = score_answer(
                     prediction=prediction,
@@ -303,7 +300,7 @@ class LocomoRunner:
 def _retrieved_dia_ids(
     *,
     result: AnswerResult,
-    dia_id_by_message_id: Mapping[UUID, str],
+    dia_ids_by_message_id: Mapping[UUID, tuple[str, ...]],
 ) -> tuple[str, ...]:
     context_ids = set(result.context_memory_ids)
     source_ids: list[str] = []
@@ -311,11 +308,21 @@ def _retrieved_dia_ids(
     for retrieved in result.retrieval.context.memories:
         if retrieved.memory.memory_id not in context_ids:
             continue
-        dia_id = dia_id_by_message_id.get(retrieved.memory.message_id)
-        if dia_id is not None and dia_id not in seen:
-            seen.add(dia_id)
-            source_ids.append(dia_id)
+        for dia_id in dia_ids_by_message_id.get(
+            retrieved.memory.message_id,
+            (),
+        ):
+            if dia_id not in seen:
+                seen.add(dia_id)
+                source_ids.append(dia_id)
     return tuple(source_ids)
+
+
+def _session_content(turns: Sequence[LocomoTurn]) -> str:
+    return "\n".join(
+        f"[{turn.dia_id}] {turn.speaker}: {turn.content}"
+        for turn in turns
+    )
 
 
 def _combine_usage(reports: Sequence[LLMUsageReport]) -> LLMUsageReport:

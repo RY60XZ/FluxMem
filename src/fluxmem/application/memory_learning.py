@@ -6,7 +6,10 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from fluxmem.application.diagnostics import MemoryDiagnosticsCollector
+from fluxmem.application.lifecycle import LifecycleAssigner
 from fluxmem.application.llm.usage import ModelUsageCollector
+from fluxmem.application.ports.clock import Clock, SystemClock
+from fluxmem.application.ports.lifecycle import LifecycleEvaluationInput
 from fluxmem.application.ports.llm import MemoryExtractor, MemoryReconciler
 from fluxmem.application.read.retrieval import HybridMemoryRetriever
 from fluxmem.application.read.session_history import GetSessionHistory
@@ -22,6 +25,8 @@ from fluxmem.domain.llm import (
     ReconciliationDecision,
     proposed_memory_to_memory,
 )
+from fluxmem.domain.lifecycle import MemoryLifecycle
+from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
 
@@ -40,7 +45,9 @@ class MemoryLearning:
         store_memory: StoreMemory,
         memory_extractor: MemoryExtractor,
         memory_reconciler: MemoryReconciler,
+        lifecycle_assigner: LifecycleAssigner,
         id_factory: Callable[[], UUID] = uuid4,
+        clock: Clock | None = None,
         enable_memory_extraction: bool = True,
         enable_memory_writes: bool = True,
         enable_conflict_detection: bool = True,
@@ -48,7 +55,9 @@ class MemoryLearning:
         self._store_memory = store_memory
         self._memory_extractor = memory_extractor
         self._memory_reconciler = memory_reconciler
+        self._lifecycle_assigner = lifecycle_assigner
         self._id_factory = id_factory
+        self._clock = clock or SystemClock()
         self._enable_memory_extraction = enable_memory_extraction
         self._enable_memory_writes = enable_memory_writes
         self._enable_conflict_detection = enable_conflict_detection
@@ -99,7 +108,7 @@ class MemoryLearning:
             session_history=session_history,
             evidence_messages=evidence_messages,
             candidate_sources={
-                message.message_id: message.created_at
+                message.message_id: message
                 for message in target_messages
             },
             candidates=candidates,
@@ -120,7 +129,7 @@ class MemoryLearning:
         session_id: UUID,
         session_history: MessagePack,
         evidence_messages: tuple[Message, ...],
-        candidate_sources: dict[UUID, datetime],
+        candidate_sources: dict[UUID, Message],
         candidates: tuple[ProposedMemory, ...],
         memory_pack: MemoryPack,
         errors: list[str],
@@ -179,19 +188,86 @@ class MemoryLearning:
         else:
             decisions = ()
 
+        additions: list[
+            tuple[int, ProposedMemory, ReconciliationDecision, Memory]
+        ] = []
+        allowed_ids = {
+            retrieved.memory.memory_id for retrieved in memory_pack.memories
+        }
         for index, candidate, decision in zip(
             valid_indices,
             valid_candidates,
             decisions,
         ):
-            outcomes_by_index[index] = self._process_candidate(
+            try:
+                self._validate_decision(
+                    decision=decision,
+                    allowed_ids=allowed_ids,
+                )
+            except (TypeError, ValueError) as error:
+                outcomes_by_index[index] = MemoryWriteOutcome(
+                    candidate=candidate,
+                    status=MemoryWriteStatus.FAILED,
+                    write_context_query_id=memory_pack.query_id,
+                    error=error_text("candidate", error),
+                )
+                continue
+            if decision.action is ReconciliationAction.NONE:
+                outcomes_by_index[index] = MemoryWriteOutcome(
+                    candidate=candidate,
+                    status=MemoryWriteStatus.EQUIVALENT,
+                    write_context_query_id=memory_pack.query_id,
+                    equivalent_memory_id=decision.equivalent_memory_id,
+                )
+                continue
+            if not self._enable_memory_writes:
+                outcomes_by_index[index] = MemoryWriteOutcome(
+                    candidate=candidate,
+                    status=MemoryWriteStatus.DRY_RUN,
+                    write_context_query_id=memory_pack.query_id,
+                )
+                continue
+            source = candidate_sources[candidate.source_message_id]
+            additions.append(
+                (
+                    index,
+                    candidate,
+                    decision,
+                    proposed_memory_to_memory(
+                        proposal=candidate,
+                        memory_id=self._id_factory(),
+                        created_at=source.created_at,
+                    ),
+                )
+            )
+
+        initialized_at = self._clock.now()
+        lifecycles = self._lifecycle_assigner.assign(
+            items=tuple(
+                LifecycleEvaluationInput(
+                    memory=memory,
+                    source_role=(
+                        candidate_sources[candidate.source_message_id].role
+                    ),
+                )
+                for _, candidate, _, memory in additions
+            ),
+            evaluated_at=initialized_at,
+            usage_recorder=usage_collector,
+            diagnostics_recorder=diagnostics_collector,
+        )
+        for (index, candidate, decision, memory), lifecycle in zip(
+            additions,
+            lifecycles,
+        ):
+            outcomes_by_index[index] = self._store_candidate(
                 user_id=user_id,
                 candidate=candidate,
                 decision=decision,
-                memory_pack=memory_pack,
-                source_created_at=candidate_sources[candidate.source_message_id],
-                usage_collector=usage_collector,
-                diagnostics_collector=diagnostics_collector,
+                memory=memory,
+                lifecycle=lifecycle,
+                initialized_at=initialized_at,
+                query_id=memory_pack.query_id,
             )
         return tuple(
             outcomes_by_index[index] for index in range(len(candidates))
@@ -210,79 +286,64 @@ class MemoryLearning:
             return "candidate applicability references a different session"
         return None
 
-    def _process_candidate(
+    @staticmethod
+    def _validate_decision(
+        *,
+        decision: ReconciliationDecision,
+        allowed_ids: set[UUID],
+    ) -> None:
+        if decision.action is ReconciliationAction.NONE:
+            if decision.equivalent_memory_id not in allowed_ids:
+                raise ValueError(
+                    "equivalent memory is absent from persisted context"
+                )
+            return
+        proposed_neighbor_ids = [
+            proposal.neighbor_memory_id
+            for proposal in decision.conflict_proposals
+        ]
+        if len(set(proposed_neighbor_ids)) != len(proposed_neighbor_ids):
+            raise ValueError("conflict proposals contain duplicate IDs")
+        if not set(proposed_neighbor_ids).issubset(allowed_ids):
+            raise ValueError(
+                "conflict proposal is absent from persisted context"
+            )
+
+    def _store_candidate(
         self,
         *,
         user_id: UUID,
         candidate: ProposedMemory,
         decision: ReconciliationDecision,
-        memory_pack: MemoryPack,
-        source_created_at: datetime,
-        usage_collector: ModelUsageCollector,
-        diagnostics_collector: MemoryDiagnosticsCollector | None,
+        memory: Memory,
+        lifecycle: MemoryLifecycle,
+        initialized_at: datetime,
+        query_id: UUID,
     ) -> MemoryWriteOutcome:
         try:
-            allowed_ids = {
-                retrieved.memory.memory_id for retrieved in memory_pack.memories
-            }
-            if decision.action is ReconciliationAction.NONE:
-                if decision.equivalent_memory_id not in allowed_ids:
-                    raise ValueError(
-                        "equivalent memory is absent from persisted context"
-                    )
-                return MemoryWriteOutcome(
-                    candidate=candidate,
-                    status=MemoryWriteStatus.EQUIVALENT,
-                    write_context_query_id=memory_pack.query_id,
-                    equivalent_memory_id=decision.equivalent_memory_id,
-                )
-
-            proposed_neighbor_ids = [
-                proposal.neighbor_memory_id
-                for proposal in decision.conflict_proposals
-            ]
-            if len(set(proposed_neighbor_ids)) != len(proposed_neighbor_ids):
-                raise ValueError("conflict proposals contain duplicate IDs")
-            if not set(proposed_neighbor_ids).issubset(allowed_ids):
-                raise ValueError(
-                    "conflict proposal is absent from persisted context"
-                )
-
-            if not self._enable_memory_writes:
-                return MemoryWriteOutcome(
-                    candidate=candidate,
-                    status=MemoryWriteStatus.DRY_RUN,
-                    write_context_query_id=memory_pack.query_id,
-                )
-
-            memory = proposed_memory_to_memory(
-                proposal=candidate,
-                memory_id=self._id_factory(),
-                created_at=source_created_at,
-            )
             memory_id = self._store_memory.execute(
                 user_id=user_id,
                 memory=memory,
-                write_context_query_id=memory_pack.query_id,
+                lifecycle=lifecycle,
+                indexed_at=initialized_at,
+                write_context_query_id=query_id,
                 conflict_proposals=(
                     decision.conflict_proposals
                     if self._enable_conflict_detection
                     else ()
                 ),
-                usage_recorder=usage_collector,
-                diagnostics_recorder=diagnostics_collector,
             )
             return MemoryWriteOutcome(
                 candidate=candidate,
                 status=MemoryWriteStatus.STORED,
-                write_context_query_id=memory_pack.query_id,
+                write_context_query_id=query_id,
                 memory_id=memory_id,
             )
         except Exception as error:
             return MemoryWriteOutcome(
                 candidate=candidate,
                 status=MemoryWriteStatus.FAILED,
-                write_context_query_id=memory_pack.query_id,
+                write_context_query_id=query_id,
                 error=error_text("candidate", error),
             )
 

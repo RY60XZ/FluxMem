@@ -7,6 +7,7 @@ from typing import Self
 
 from fluxmem import (
     FluxMem,
+    LLMContextSettings,
     LLMLifecycleEvaluator,
     LLMMemoryExtractor,
     LLMMemoryReconciler,
@@ -40,6 +41,7 @@ def bootstrap_from_env(
     *,
     dotenv_path: str | Path | None = ".env",
     environ: Mapping[str, str] | None = None,
+    memory_context_settings: LLMContextSettings | None = None,
     **engine_options: object,
 ) -> AnsweringRuntime:
     settings = load_settings(dotenv_path=dotenv_path, environ=environ)
@@ -59,7 +61,9 @@ def bootstrap_from_env(
         http_referer=settings.openrouter_http_referer,
         app_name=settings.openrouter_app_name,
     )
-    context_settings = settings.memory_context_settings()
+    context_settings = (
+        memory_context_settings or settings.memory_context_settings()
+    )
     memory = bootstrap(
         database_url=settings.database_url,
         memory_extractor=LLMMemoryExtractor(
@@ -75,7 +79,10 @@ def bootstrap_from_env(
         lifecycle_evaluator=(
             LLMLifecycleEvaluator(
                 provider=provider,
-                settings=settings.task_settings(settings.lifecycle_model),
+                settings=settings.task_settings(
+                    settings.lifecycle_model,
+                    repair_invalid_output=False,
+                ),
             )
             if settings.enable_llm_lifecycle
             else None

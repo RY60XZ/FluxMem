@@ -115,11 +115,17 @@ class InfrastructureSettings:
             ),
         )
 
-    def task_settings(self, model: str) -> LLMTaskSettings:
+    def task_settings(
+        self,
+        model: str,
+        *,
+        repair_invalid_output: bool = True,
+    ) -> LLMTaskSettings:
         return LLMTaskSettings(
             model=model,
             timeout_seconds=self.llm_timeout_seconds,
             maximum_output_tokens=self.llm_maximum_output_tokens,
+            repair_invalid_output=repair_invalid_output,
         )
 
     def memory_settings(self) -> MemoryLayerSettings:

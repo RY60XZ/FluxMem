@@ -140,7 +140,21 @@ class LocomoRunnerTests(unittest.TestCase):
         self.assertEqual(len(artifacts), 10)
         self.assertEqual(
             {messages[0].agent_id for messages in memory.messages_by_user.values()},
-            {"Alice"},
+            {None},
+        )
+        self.assertEqual(
+            {messages[0].role for messages in memory.messages_by_user.values()},
+            {"conversation"},
+        )
+        self.assertTrue(
+            all(
+                messages[0].content
+                == (
+                    "[D1:1] Alice: I live in Toronto.\n"
+                    "[D1:2] Bob: That sounds great."
+                )
+                for messages in memory.messages_by_user.values()
+            )
         )
 
     def test_single_mode_uses_the_same_conversation_pipeline(self) -> None:
@@ -177,6 +191,12 @@ def _conversation(sample_id: str) -> LocomoConversation:
                         dia_id="D1:1",
                         speaker="Alice",
                         text="I live in Toronto.",
+                        occurred_at=occurred_at,
+                    ),
+                    LocomoTurn(
+                        dia_id="D1:2",
+                        speaker="Bob",
+                        text="That sounds great.",
                         occurred_at=occurred_at,
                     ),
                 ),

@@ -8,22 +8,9 @@ from fluxmem.application.errors import (
     InvalidSessionApplicabilityError,
     MessageNotFoundError,
 )
-from fluxmem.application.lifecycle import (
-    LifecyclePolicyExecutor,
-    RuleLifecycleEvaluator,
-)
-from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.embeddings import (
     EmbeddingProvider,
     EmbeddingProviderError,
-)
-from fluxmem.application.ports.lifecycle import (
-    LifecycleEvaluationError,
-    LifecycleEvaluator,
-)
-from fluxmem.application.ports.llm import (
-    ModelDiagnosticsRecorder,
-    ModelUsageRecorder,
 )
 from fluxmem.application.ports.unit_of_work import UnitOfWork
 from fluxmem.domain.conflict import ConflictProposal, MemoryConflict
@@ -44,17 +31,10 @@ class StoreMemory:
         self,
         *,
         unit_of_work_factory: Callable[[], UnitOfWork],
-        lifecycle_evaluator: LifecycleEvaluator | None = None,
-        lifecycle_policy: LifecyclePolicyExecutor | None = None,
         embedding_provider: EmbeddingProvider | None = None,
-        clock: Clock | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
-        self._lifecycle_evaluator = lifecycle_evaluator or RuleLifecycleEvaluator()
-        self._fallback_evaluator = RuleLifecycleEvaluator()
-        self._lifecycle_policy = lifecycle_policy or LifecyclePolicyExecutor()
         self._embedding_provider = embedding_provider
-        self._clock = clock or SystemClock()
         if (
             embedding_provider is not None
             and embedding_provider.dimensions != EMBEDDING_DIMENSIONS
@@ -68,19 +48,21 @@ class StoreMemory:
         *,
         user_id: UUID,
         memory: Memory,
+        lifecycle: MemoryLifecycle,
+        indexed_at: datetime,
         write_context_query_id: UUID | None = None,
         conflict_proposals: tuple[ConflictProposal, ...] = (),
-        usage_recorder: ModelUsageRecorder | None = None,
-        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
     ) -> UUID:
         # Resolve immutable evidence in a short read transaction. Provider calls
         # happen only after this context has closed.
         with self._unit_of_work_factory() as unit_of_work:
-            source_message = self._validated_source_message(
+            self._validated_source_message(
                 unit_of_work=unit_of_work,
                 user_id=user_id,
                 memory=memory,
             )
+        if lifecycle.memory_id != memory.memory_id:
+            raise ValueError("memory and lifecycle IDs must match")
 
         embedding = None
         if self._embedding_provider is not None:
@@ -93,14 +75,6 @@ class StoreMemory:
                     "embedding provider returned a vector with invalid dimensions"
                 )
 
-        initialized_at = self._clock.now()
-        lifecycle = self._initial_lifecycle(
-            memory=memory,
-            source_role=source_message.role,
-            initialized_at=initialized_at,
-            usage_recorder=usage_recorder,
-            diagnostics_recorder=diagnostics_recorder,
-        )
         memory_index = MemoryIndex(
             memory_id=memory.memory_id,
             text=memory.content,
@@ -110,7 +84,7 @@ class StoreMemory:
                 if embedding is not None
                 else IndexStatus.PENDING
             ),
-            indexed_at=initialized_at,
+            indexed_at=indexed_at,
         )
 
         with self._unit_of_work_factory() as unit_of_work:
@@ -126,7 +100,7 @@ class StoreMemory:
                 memory=memory,
                 query_id=write_context_query_id,
                 proposals=conflict_proposals,
-                created_at=initialized_at,
+                created_at=indexed_at,
             )
 
             unit_of_work.memories.add(memory=memory)
@@ -203,36 +177,3 @@ class StoreMemory:
                 )
             )
         return tuple(conflicts)
-
-    def _initial_lifecycle(
-        self,
-        *,
-        memory: Memory,
-        source_role: str,
-        initialized_at: datetime,
-        usage_recorder: ModelUsageRecorder | None,
-        diagnostics_recorder: ModelDiagnosticsRecorder | None,
-    ) -> MemoryLifecycle:
-        """Use the rule evaluator when a configured semantic evaluator fails."""
-
-        try:
-            decision = self._lifecycle_evaluator.evaluate(
-                memory=memory,
-                source_role=source_role,
-                evaluated_at=initialized_at,
-                usage_recorder=usage_recorder,
-                diagnostics_recorder=diagnostics_recorder,
-            )
-        except LifecycleEvaluationError:
-            decision = self._fallback_evaluator.evaluate(
-                memory=memory,
-                source_role=source_role,
-                evaluated_at=initialized_at,
-                usage_recorder=usage_recorder,
-                diagnostics_recorder=diagnostics_recorder,
-            )
-        return self._lifecycle_policy.initialize(
-            memory=memory,
-            decision=decision,
-            initialized_at=initialized_at,
-        )

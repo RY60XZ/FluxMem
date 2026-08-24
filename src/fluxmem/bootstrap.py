@@ -8,6 +8,7 @@ from fluxmem.adapters.postgres.database import (
 )
 from fluxmem.adapters.postgres.unit_of_work import SqlAlchemyUnitOfWork
 from fluxmem.api import FluxMem
+from fluxmem.application.lifecycle import LifecycleAssigner
 from fluxmem.application.memory_learning import LearnFromMessages, MemoryLearning
 from fluxmem.application.ports.embeddings import EmbeddingProvider
 from fluxmem.application.ports.lifecycle import LifecycleEvaluator
@@ -80,7 +81,6 @@ def bootstrap(
     store_message = StoreMessage(unit_of_work_factory=unit_of_work_factory)
     store_memory = StoreMemory(
         unit_of_work_factory=unit_of_work_factory,
-        lifecycle_evaluator=lifecycle_evaluator,
         embedding_provider=embedding_provider,
     )
 
@@ -94,6 +94,9 @@ def bootstrap(
                 store_memory=store_memory,
                 memory_extractor=memory_extractor,
                 memory_reconciler=memory_reconciler,
+                lifecycle_assigner=LifecycleAssigner(
+                    evaluator=lifecycle_evaluator,
+                ),
                 enable_memory_extraction=configured.enable_memory_extraction,
                 enable_memory_writes=configured.enable_memory_writes,
                 enable_conflict_detection=(

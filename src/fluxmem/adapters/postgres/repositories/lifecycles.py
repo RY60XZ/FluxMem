@@ -22,7 +22,7 @@ from fluxmem.domain.lifecycle import (
 
 
 _REINFORCEMENT_RATE = {
-    UsageType.CONTEXT_INCLUDED: 0.1,
+    UsageType.CONTEXT_INCLUDED: 0.05,
     UsageType.MODEL_ATTRIBUTED: 0.2,
 }
 _DECAY_CLASS_BY_TIER = {

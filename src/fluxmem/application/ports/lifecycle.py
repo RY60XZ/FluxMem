@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
@@ -15,13 +16,18 @@ class LifecycleEvaluationError(RuntimeError):
     """A lifecycle evaluator could not produce a usable semantic decision."""
 
 
+@dataclass(frozen=True, slots=True)
+class LifecycleEvaluationInput:
+    memory: Memory
+    source_role: str
+
+
 class LifecycleEvaluator(Protocol):
-    def evaluate(
+    def evaluate_many(
         self,
         *,
-        memory: Memory,
-        source_role: str,
+        items: tuple[LifecycleEvaluationInput, ...],
         evaluated_at: datetime,
         usage_recorder: ModelUsageRecorder | None = None,
         diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
-    ) -> LifecycleDecision: ...
+    ) -> tuple[LifecycleDecision | None, ...]: ...

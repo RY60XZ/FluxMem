@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from fluxmem import LLMContextSettings
 from fluxmem_infrastructure.config import load_settings
 from fluxmem_infrastructure.locomo.dataset import (
     DEFAULT_DATA_PATH,
@@ -17,6 +18,14 @@ from fluxmem_infrastructure.locomo.dataset import (
 )
 from fluxmem_infrastructure.locomo.runner import LocomoRunner
 from fluxmem_infrastructure.runtime import bootstrap_from_env
+
+
+_LOCOMO_MEMORY_CONTEXT = LLMContextSettings(
+    maximum_history_messages=1,
+    maximum_write_history_messages=1,
+    maximum_write_history_characters=8_000,
+    maximum_write_message_content_characters=8_000,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -83,7 +92,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "lifecycle": settings.lifecycle_model,
             "embedding": settings.embedding_model,
         }
-        with bootstrap_from_env(dotenv_path=arguments.dotenv) as runtime:
+        with bootstrap_from_env(
+            dotenv_path=arguments.dotenv,
+            memory_context_settings=_LOCOMO_MEMORY_CONTEXT,
+        ) as runtime:
             summary = LocomoRunner(
                 memory=runtime.memory,
                 answering=runtime.agent,
