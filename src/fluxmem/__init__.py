@@ -8,8 +8,10 @@ from fluxmem.domain.llm import (
     ConversationTurnResult,
     LLMTaskKind,
     LLMUsageReport,
+    MemoryQueryResult,
     MemoryWriteOutcome,
     MemoryWriteStatus,
+    MessageIngestionResult,
 )
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message, Session, User
@@ -30,9 +32,11 @@ __all__ = (
     "LLMUsageReport",
     "LocalRuntimeSettings",
     "Memory",
+    "MemoryQueryResult",
     "MemoryWriteOutcome",
     "MemoryWriteStatus",
     "Message",
+    "MessageIngestionResult",
     "Session",
     "User",
     "__version__",

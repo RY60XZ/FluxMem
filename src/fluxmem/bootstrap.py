@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Self
 from uuid import UUID
 
@@ -18,6 +20,7 @@ from fluxmem.application.llm import (
     LLMMemoryExtractor,
     LLMMemoryReconciler,
 )
+from fluxmem.application.memory_learning import LearnFromMessages, MemoryLearning
 from fluxmem.application.ports.embeddings import EmbeddingProvider
 from fluxmem.application.ports.lifecycle import LifecycleEvaluator
 from fluxmem.application.ports.llm import ModelProvider
@@ -25,6 +28,7 @@ from fluxmem.application.process_turn import (
     ConversationTurnStream,
     ProcessConversationTurn,
 )
+from fluxmem.application.query_memory import QueryMemory
 from fluxmem.application.read.retrieval import (
     HybridRetrievalSettings,
     RetrievalForAdding,
@@ -36,8 +40,12 @@ from fluxmem.application.write.reinforcement import ReinforceMemory
 from fluxmem.application.write.reindex_memories import ReindexPendingMemories
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.application.write.store_message import StoreMessage
-from fluxmem.domain.llm import ConversationTurnResult
-from fluxmem.domain.message import Session
+from fluxmem.domain.llm import (
+    ConversationTurnResult,
+    MemoryQueryResult,
+    MessageIngestionResult,
+)
+from fluxmem.domain.message import Message, Session
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +62,8 @@ class FluxMemServices:
     reinforce_memory: ReinforceMemory
     reindex_pending_memories: ReindexPendingMemories | None
     process_turn: ProcessConversationTurn | None
+    learn_from_messages: LearnFromMessages | None = None
+    query_memory: QueryMemory | None = None
 
     def __enter__(self) -> Self:
         return self
@@ -67,10 +77,58 @@ class FluxMemServices:
         del exc_type, exc_value, traceback
         self.close()
 
-    def start_session(self, *, user_id: UUID) -> Session:
+    def start_session(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID | None = None,
+    ) -> Session:
         """Create a conversation session for one application-owned user ID."""
 
-        return self.create_session.execute(user_id=user_id)
+        return self.create_session.execute(
+            user_id=user_id,
+            session_id=session_id,
+        )
+
+    def ingest_messages(
+        self,
+        *,
+        user_id: UUID,
+        messages: Sequence[Message],
+        diagnostics: bool = False,
+    ) -> MessageIngestionResult:
+        """Learn from imported transcript messages without generating replies."""
+
+        if self.learn_from_messages is None:
+            raise RuntimeError("message learning is not configured")
+        return self.learn_from_messages.execute(
+            user_id=user_id,
+            messages=messages,
+            diagnostics=diagnostics,
+        )
+
+    def query(
+        self,
+        *,
+        user_id: UUID,
+        session_id: UUID,
+        content: str,
+        agent_id: str | None = None,
+        diagnostics: bool = False,
+        created_at: datetime | None = None,
+    ) -> MemoryQueryResult:
+        """Answer without storing the exchange or changing memory lifecycle."""
+
+        if self.query_memory is None:
+            raise RuntimeError("memory querying is not configured")
+        return self.query_memory.execute_text(
+            user_id=user_id,
+            session_id=session_id,
+            content=content,
+            agent_id=agent_id,
+            diagnostics=diagnostics,
+            created_at=created_at,
+        )
 
     def stream_turn(
         self,
@@ -195,6 +253,8 @@ def bootstrap(
         embedding_provider=embedding_provider,
     )
     process_turn = None
+    learn_from_messages = None
+    query_memory = None
     if (
         answer_generator is not None
         and memory_extractor is not None
@@ -213,6 +273,30 @@ def bootstrap(
             enable_memory_extraction=llm_settings.enable_memory_extraction,
             enable_memory_writes=llm_settings.enable_memory_writes,
             enable_conflict_detection=llm_settings.enable_conflict_detection,
+        )
+        memory_learning = MemoryLearning(
+            store_memory=store_memory,
+            memory_extractor=memory_extractor,
+            memory_reconciler=memory_reconciler,
+            enable_memory_extraction=llm_settings.enable_memory_extraction,
+            enable_memory_writes=llm_settings.enable_memory_writes,
+            enable_conflict_detection=llm_settings.enable_conflict_detection,
+        )
+        learn_from_messages = LearnFromMessages(
+            get_session_history=get_session_history,
+            retrieval_for_answering=retrieval_for_answering,
+            store_message=store_message,
+            memory_learning=memory_learning,
+            maximum_batch_messages=(
+                llm_settings.context.maximum_write_history_messages
+            ),
+            history_limit=llm_settings.context.maximum_history_messages,
+        )
+        query_memory = QueryMemory(
+            get_session_history=get_session_history,
+            retrieval_for_answering=retrieval_for_answering,
+            answer_generator=answer_generator,
+            history_limit=llm_settings.context.maximum_history_messages,
         )
 
     return FluxMemServices(
@@ -233,4 +317,6 @@ def bootstrap(
             else None
         ),
         process_turn=process_turn,
+        learn_from_messages=learn_from_messages,
+        query_memory=query_memory,
     )

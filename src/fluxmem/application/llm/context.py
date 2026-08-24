@@ -262,6 +262,11 @@ def render_messages(
         raw_record = {
             "message_ref": message_limit,
             "role": message.role,
+            **(
+                {"speaker": message.agent_id}
+                if message.agent_id is not None
+                else {}
+            ),
             "content": (
                 _clip(message.content, limit=maximum_content_characters)
                 if maximum_content_characters is not None

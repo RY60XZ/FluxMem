@@ -295,6 +295,41 @@ class ConversationTurnResult:
     diagnostics: ConversationTurnDiagnostics | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class MessageIngestionResult:
+    """Result of learning from imported messages without generating a reply."""
+
+    messages: tuple[Message, ...]
+    memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
+    errors: tuple[str, ...] = ()
+    llm_usage: LLMUsageReport = LLMUsageReport()
+    diagnostics: ConversationTurnDiagnostics | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryQueryResult:
+    """Non-learning answer result for an ephemeral query message."""
+
+    query: Message
+    answer: Message
+    answering_memory_pack: MemoryPack
+    context_memory_ids: tuple[UUID, ...]
+    llm_usage: LLMUsageReport = LLMUsageReport()
+    diagnostics: ConversationTurnDiagnostics | None = None
+
+    def __post_init__(self) -> None:
+        if self.query.session_id != self.answer.session_id:
+            raise ValueError("query and answer must share one session")
+        if self.query.session_id != self.answering_memory_pack.session_id:
+            raise ValueError("query and memory pack must share one session")
+        returned_ids = {
+            retrieved.memory.memory_id
+            for retrieved in self.answering_memory_pack.memories
+        }
+        if not set(self.context_memory_ids).issubset(returned_ids):
+            raise ValueError("answer context must come from returned memories")
+
+
 def proposed_memory_to_memory(
     *,
     proposal: ProposedMemory,

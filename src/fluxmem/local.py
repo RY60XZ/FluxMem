@@ -18,7 +18,7 @@ from fluxmem.application.llm import (
 from fluxmem.bootstrap import FluxMemServices, bootstrap
 
 
-DEFAULT_OPENROUTER_MODEL = "google/gemma-4-31b-it:free"
+DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731"
 DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 
 

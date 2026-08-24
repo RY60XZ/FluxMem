@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from fluxmem.application.diagnostics import TurnDiagnosticsCollector
 from fluxmem.application.llm.usage import ModelUsageCollector
+from fluxmem.application.memory_learning import MemoryLearning, error_text
 from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.llm import (
     AnswerGenerator,
@@ -29,12 +30,6 @@ from fluxmem.domain.llm import (
     ConversationTurnDiagnostics,
     ConversationTurnResult,
     LLMUsageReport,
-    MemoryWriteOutcome,
-    MemoryWriteStatus,
-    ProposedMemory,
-    ReconciliationAction,
-    ReconciliationDecision,
-    proposed_memory_to_memory,
 )
 from fluxmem.domain.message import Message
 
@@ -160,18 +155,21 @@ class ProcessConversationTurn:
         self._get_session_history = get_session_history
         self._retrieval_for_answering = retrieval_for_answering
         self._store_message = store_message
-        self._store_memory = store_memory
         self._reinforce_memory = reinforce_memory
         self._answer_generator = answer_generator
-        self._memory_extractor = memory_extractor
-        self._memory_reconciler = memory_reconciler
         self._clock = clock or SystemClock()
         self._id_factory = id_factory
         self._history_limit = history_limit
         self._answering_limit = answering_limit
-        self._enable_memory_extraction = enable_memory_extraction
-        self._enable_memory_writes = enable_memory_writes
-        self._enable_conflict_detection = enable_conflict_detection
+        self._memory_learning = MemoryLearning(
+            store_memory=store_memory,
+            memory_extractor=memory_extractor,
+            memory_reconciler=memory_reconciler,
+            id_factory=id_factory,
+            enable_memory_extraction=enable_memory_extraction,
+            enable_memory_writes=enable_memory_writes,
+            enable_conflict_detection=enable_conflict_detection,
+        )
         self._owns_post_answer_executor = post_answer_executor is None
         self._post_answer_executor = post_answer_executor or ThreadPoolExecutor(
             max_workers=post_answer_workers,
@@ -359,33 +357,18 @@ class ProcessConversationTurn:
             errors=errors,
         )
 
-        if self._enable_memory_extraction:
-            try:
-                candidates = self._memory_extractor.extract(
-                    target_messages=(message,),
-                    session_history=history,
-                    memory_pack=extraction_pack,
-                    usage_recorder=usage_collector,
-                    diagnostics_recorder=diagnostics_collector,
-                )
-            except Exception as error:
-                errors.append(_error_text("extraction", error))
-                candidates = ()
-        else:
-            candidates = ()
-
-        outcomes = self._reconcile_and_store_candidates(
+        learned = self._memory_learning.execute(
             user_id=user_id,
-            session_id=message.session_id,
             session_history=history,
+            target_messages=(message,),
             evidence_messages=(message, answer),
-            candidate_source_ids={message.message_id},
-            candidates=candidates,
-            memory_pack=answering_pack,
-            errors=errors,
+            extraction_pack=extraction_pack,
+            reconciliation_pack=answering_pack,
             usage_collector=usage_collector,
             diagnostics_collector=diagnostics_collector,
         )
+        errors.extend(learned.errors)
+        outcomes = learned.memory_outcomes
         diagnostic_snapshot = None
         if diagnostics_collector is not None:
             diagnostics_collector.complete(
@@ -441,182 +424,6 @@ class ProcessConversationTurn:
                 )
             )
         except Exception as error:
-            errors.append(_error_text("feedback", error))
+            errors.append(error_text("feedback", error))
             return False
         return True
-
-    def _reconcile_and_store_candidates(
-        self,
-        *,
-        user_id: UUID,
-        session_id: UUID,
-        session_history: MessagePack,
-        evidence_messages: tuple[Message, ...],
-        candidate_source_ids: set[UUID],
-        candidates: tuple[ProposedMemory, ...],
-        memory_pack: MemoryPack,
-        errors: list[str],
-        usage_collector: ModelUsageCollector,
-        diagnostics_collector: TurnDiagnosticsCollector | None,
-    ) -> tuple[MemoryWriteOutcome, ...]:
-        if not candidates:
-            return ()
-
-        valid_candidates: list[ProposedMemory] = []
-        valid_indices: list[int] = []
-        outcomes_by_index: dict[int, MemoryWriteOutcome] = {}
-        for index, candidate in enumerate(candidates):
-            error = self._candidate_validation_error(
-                candidate=candidate,
-                session_id=session_id,
-                candidate_source_ids=candidate_source_ids,
-            )
-            if error is None:
-                valid_candidates.append(candidate)
-                valid_indices.append(index)
-            else:
-                outcomes_by_index[index] = MemoryWriteOutcome(
-                    candidate=candidate,
-                    status=MemoryWriteStatus.FAILED,
-                    write_context_query_id=memory_pack.query_id,
-                    error=error,
-                )
-
-        decisions: tuple[ReconciliationDecision, ...]
-        if valid_candidates:
-            try:
-                decisions = self._memory_reconciler.reconcile(
-                    candidates=tuple(valid_candidates),
-                    memory_pack=memory_pack,
-                    evidence_messages=evidence_messages,
-                    session_history=session_history,
-                    usage_recorder=usage_collector,
-                    diagnostics_recorder=diagnostics_collector,
-                )
-                if len(decisions) != len(valid_candidates):
-                    raise ValueError(
-                        "reconciliation must decide every valid candidate"
-                    )
-            except Exception as error:
-                detail = _error_text("reconciliation", error)
-                errors.append(detail)
-                decisions = ()
-                for index, candidate in zip(valid_indices, valid_candidates):
-                    outcomes_by_index[index] = MemoryWriteOutcome(
-                        candidate=candidate,
-                        status=MemoryWriteStatus.FAILED,
-                        write_context_query_id=memory_pack.query_id,
-                        error=detail,
-                    )
-        else:
-            decisions = ()
-
-        for index, candidate, decision in zip(
-            valid_indices,
-            valid_candidates,
-            decisions,
-        ):
-            outcomes_by_index[index] = self._process_candidate(
-                user_id=user_id,
-                candidate=candidate,
-                decision=decision,
-                memory_pack=memory_pack,
-                usage_collector=usage_collector,
-                diagnostics_collector=diagnostics_collector,
-            )
-        return tuple(
-            outcomes_by_index[index] for index in range(len(candidates))
-        )
-
-    @staticmethod
-    def _candidate_validation_error(
-        *,
-        candidate: ProposedMemory,
-        session_id: UUID,
-        candidate_source_ids: set[UUID],
-    ) -> str | None:
-        if candidate.source_message_id not in candidate_source_ids:
-            return "candidate source is absent from extraction targets"
-        if candidate.session_applicability not in (None, session_id):
-            return "candidate applicability references a different session"
-        return None
-
-    def _process_candidate(
-        self,
-        *,
-        user_id: UUID,
-        candidate: ProposedMemory,
-        decision: ReconciliationDecision,
-        memory_pack: MemoryPack,
-        usage_collector: ModelUsageCollector,
-        diagnostics_collector: TurnDiagnosticsCollector | None,
-    ) -> MemoryWriteOutcome:
-        try:
-            allowed_ids = {
-                retrieved.memory.memory_id for retrieved in memory_pack.memories
-            }
-            if decision.action is ReconciliationAction.NONE:
-                if decision.equivalent_memory_id not in allowed_ids:
-                    raise ValueError(
-                        "equivalent memory is absent from persisted turn context"
-                    )
-                return MemoryWriteOutcome(
-                    candidate=candidate,
-                    status=MemoryWriteStatus.EQUIVALENT,
-                    write_context_query_id=memory_pack.query_id,
-                    equivalent_memory_id=decision.equivalent_memory_id,
-                )
-
-            proposed_neighbor_ids = [
-                proposal.neighbor_memory_id
-                for proposal in decision.conflict_proposals
-            ]
-            if len(set(proposed_neighbor_ids)) != len(proposed_neighbor_ids):
-                raise ValueError("conflict proposals contain duplicate IDs")
-            if not set(proposed_neighbor_ids).issubset(allowed_ids):
-                raise ValueError(
-                    "conflict proposal is absent from persisted turn context"
-                )
-
-            if not self._enable_memory_writes:
-                return MemoryWriteOutcome(
-                    candidate=candidate,
-                    status=MemoryWriteStatus.DRY_RUN,
-                    write_context_query_id=memory_pack.query_id,
-                )
-
-            memory = proposed_memory_to_memory(
-                proposal=candidate,
-                memory_id=self._id_factory(),
-                created_at=self._clock.now(),
-            )
-            memory_id = self._store_memory.execute(
-                user_id=user_id,
-                memory=memory,
-                write_context_query_id=memory_pack.query_id,
-                conflict_proposals=(
-                    decision.conflict_proposals
-                    if self._enable_conflict_detection
-                    else ()
-                ),
-                usage_recorder=usage_collector,
-                diagnostics_recorder=diagnostics_collector,
-            )
-            return MemoryWriteOutcome(
-                candidate=candidate,
-                status=MemoryWriteStatus.STORED,
-                write_context_query_id=memory_pack.query_id,
-                memory_id=memory_id,
-            )
-        except Exception as error:
-            return MemoryWriteOutcome(
-                candidate=candidate,
-                status=MemoryWriteStatus.FAILED,
-                write_context_query_id=memory_pack.query_id,
-                error=_error_text("candidate", error),
-            )
-
-
-def _error_text(stage: str, error: Exception) -> str:
-    detail = str(error).strip() or type(error).__name__
-    return f"{stage}: {detail}"
