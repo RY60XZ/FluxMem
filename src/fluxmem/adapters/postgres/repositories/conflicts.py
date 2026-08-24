@@ -142,8 +142,6 @@ class SqlAlchemyConflictRepository:
                     MemoryRow.session_applicability.is_(None),
                     MemoryRow.session_applicability == session_id,
                 ),
-                or_(MemoryRow.valid_from.is_(None), MemoryRow.valid_from <= as_of),
-                or_(MemoryRow.valid_to.is_(None), MemoryRow.valid_to >= as_of),
             )
             .order_by(
                 seed_id,
