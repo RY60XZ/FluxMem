@@ -17,6 +17,7 @@ from fluxmem_infrastructure.locomo.dataset import (
     select_conversations,
 )
 from fluxmem_infrastructure.locomo.judge import LLMLocomoJudge
+from fluxmem_infrastructure.locomo.prompts import answer_prompt
 from fluxmem_infrastructure.locomo.runner import LocomoRunner
 from fluxmem_infrastructure.runtime import bootstrap_from_env
 
@@ -85,7 +86,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings = load_settings(dotenv_path=arguments.dotenv)
         model_settings = {
             "answer": settings.answer_model,
-            "judge": settings.answer_model,
+            "judge": settings.judge_model,
             "extraction": settings.extraction_model,
             "reconciliation": settings.reconciliation_model,
             "lifecycle": settings.lifecycle_model,
@@ -95,13 +96,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             dotenv_path=arguments.dotenv,
             retrieval_settings=_LOCOMO_RETRIEVAL_SETTINGS,
             answer_with_history=False,
+            answer_instructions=answer_prompt(),
         ) as runtime:
             summary = LocomoRunner(
                 memory=runtime.memory,
                 answering=runtime.agent,
                 judge=LLMLocomoJudge(
                     provider=runtime.model_provider,
-                    settings=runtime.settings.answer_model_settings(),
+                    settings=runtime.settings.judge_model_settings(),
                 ),
                 output_dir=arguments.output,
                 dataset_path=data_path,

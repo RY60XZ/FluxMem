@@ -24,6 +24,7 @@ class InfrastructureSettings:
     database_url: str = field(repr=False)
     openrouter_api_key: str = field(repr=False)
     answer_model: str = DEFAULT_OPENROUTER_MODEL
+    judge_model: str = DEFAULT_OPENROUTER_MODEL
     extraction_model: str = DEFAULT_OPENROUTER_MODEL
     reconciliation_model: str = DEFAULT_OPENROUTER_MODEL
     lifecycle_model: str = DEFAULT_OPENROUTER_MODEL
@@ -53,10 +54,14 @@ class InfrastructureSettings:
         shared_model = (
             _optional(values, "FLUXMEM_LLM_MODEL") or DEFAULT_OPENROUTER_MODEL
         )
+        answer_model = _optional(values, "FLUXMEM_ANSWER_MODEL") or shared_model
         return cls(
             database_url=_required(values, "FLUXMEM_DATABASE_URL"),
             openrouter_api_key=_required(values, "OPENROUTER_API_KEY"),
-            answer_model=_optional(values, "FLUXMEM_ANSWER_MODEL") or shared_model,
+            answer_model=answer_model,
+            judge_model=(
+                _optional(values, "FLUXMEM_JUDGE_MODEL") or answer_model
+            ),
             extraction_model=(
                 _optional(values, "FLUXMEM_EXTRACTION_MODEL") or shared_model
             ),
@@ -144,6 +149,13 @@ class InfrastructureSettings:
     def answer_model_settings(self) -> AnswerModelSettings:
         return AnswerModelSettings(
             model=self.answer_model,
+            timeout_seconds=self.llm_timeout_seconds,
+            maximum_output_tokens=self.llm_maximum_output_tokens,
+        )
+
+    def judge_model_settings(self) -> AnswerModelSettings:
+        return AnswerModelSettings(
+            model=self.judge_model,
             timeout_seconds=self.llm_timeout_seconds,
             maximum_output_tokens=self.llm_maximum_output_tokens,
         )

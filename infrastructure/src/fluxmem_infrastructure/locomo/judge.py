@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import StrEnum
-from importlib.resources import files
 
 from fluxmem import ModelTokenUsage, StructuredModelProvider
 from fluxmem_infrastructure.answering import AnswerModelSettings
 from fluxmem_infrastructure.locomo.dataset import SCORABLE_CATEGORIES
+from fluxmem_infrastructure.locomo.prompts import judge_prompt
 
 
 _JUDGE_SYSTEM_PROMPT = (
@@ -47,7 +47,7 @@ class LocomoJudgment:
 
 
 class LLMLocomoJudge:
-    """Mem0-compatible binary LoCoMo judge without dialogue evidence."""
+    """Binary LoCoMo judge for categories 1-4."""
 
     def __init__(
         self,
@@ -78,7 +78,7 @@ class LLMLocomoJudge:
         response = self._provider.generate(
             model=self._settings.model,
             instructions=_JUDGE_SYSTEM_PROMPT,
-            input_text=_judge_prompt().format(
+            input_text=judge_prompt().format(
                 question=question,
                 answer=reference_answer,
                 response=prediction,
@@ -117,12 +117,3 @@ def _preprocess_answer(*, category: int, answer: str) -> str:
     if category == 3 and ";" in answer:
         return answer.split(";", 1)[0].strip()
     return answer
-
-
-def _judge_prompt() -> str:
-    return (
-        files("fluxmem_infrastructure.locomo.prompts")
-        .joinpath("judge.txt")
-        .read_text(encoding="utf-8")
-        .strip()
-    )

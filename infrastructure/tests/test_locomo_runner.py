@@ -8,14 +8,17 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fluxmem import (
+    LLMUsageReport,
     MemoryPack,
     MemoryRetrievalResult,
     Message,
     MessageIngestionResult,
+    ModelTokenUsage,
     RetrievedMemory,
     Session,
 )
 from fluxmem.domain.info_pack import TurnMemoryPacks
+from fluxmem.domain.llm import LLMTaskKind, ModelCallUsage
 from fluxmem.domain.memory import Memory
 from fluxmem_infrastructure.answering import AnswerResult
 from fluxmem_infrastructure.locomo.dataset import (
@@ -48,7 +51,23 @@ class _Memory:
     def ingest_messages(self, *, user_id, messages, diagnostics=False):
         del diagnostics
         self.messages_by_user[user_id].extend(messages)
-        return MessageIngestionResult(messages=tuple(messages))
+        return MessageIngestionResult(
+            messages=tuple(messages),
+            llm_usage=LLMUsageReport(
+                calls=(
+                    ModelCallUsage(
+                        task=LLMTaskKind.EXTRACTION,
+                        model="test-extractor",
+                        attempt=1,
+                        token_usage=ModelTokenUsage(
+                            input_tokens=2,
+                            output_tokens=1,
+                            total_tokens=3,
+                        ),
+                    ),
+                )
+            ),
+        )
 
 
 class _Answering:
@@ -100,7 +119,7 @@ class _Answering:
             session_id=session_id,
             role="assistant",
             agent_id="test-answerer",
-            content="Toronto",
+            content="Reasoning\nANSWER: Toronto",
             created_at=created_at,
         )
         retrieval = MemoryRetrievalResult(
@@ -113,7 +132,11 @@ class _Answering:
             context_memory_ids=(memory_id,),
             model="test-answerer",
             response_id=None,
-            usage=None,
+            usage=ModelTokenUsage(
+                input_tokens=10,
+                output_tokens=2,
+                total_tokens=12,
+            ),
         )
 
 
@@ -125,7 +148,11 @@ class _Judge:
             reasoning="The prediction matches the reference answer.",
             model="test-answerer",
             response_id="judge-response",
-            usage=None,
+            usage=ModelTokenUsage(
+                input_tokens=4,
+                output_tokens=2,
+                total_tokens=6,
+            ),
         )
 
 
@@ -155,6 +182,13 @@ class LocomoRunnerTests(unittest.TestCase):
         self.assertEqual(summary["conversation_count"], 10)
         self.assertEqual(summary["question_count"], 10)
         self.assertEqual(summary["metrics"]["overall"]["accuracy"], 100.0)
+        self.assertEqual(
+            {
+                stage: values["average_tokens_per_operation"]["total"]
+                for stage, values in summary["token_usage"].items()
+            },
+            {"ingestion": 3.0, "answer": 12.0, "judge": 6.0},
+        )
         self.assertEqual(len(artifacts), 10)
         self.assertEqual(
             {

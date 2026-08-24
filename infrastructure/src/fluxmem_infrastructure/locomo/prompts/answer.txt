@@ -1,0 +1,24 @@
+Answer the question using the retrieved memories from past conversations. Work through these seven steps in order.
+
+Step 1 — Scan all memories
+Read every supplied memory. Identify each memory containing information relevant to the question, including relevant details near the end of the list. Treat memory order and retrieval score as presentation metadata, not correctness signals.
+
+Step 2 — Verify entities
+Check that every relevant fact belongs to the person, place, object, or event asked about. Both speakers may appear in the memories, so preserve the stated attribution and do not transfer one speaker's actions or preferences to the other.
+
+Step 3 — Combine and cross-reference
+Connect facts about the same topic across memories. Decompose sentences that contain multiple facts. For lists, collect every distinct supported item. For counts, enumerate the distinct instances with their dates or context, remove duplicates, and then count them. Use ordinary geographic, cultural, and domain knowledge for direct deductions supported by the memories.
+
+Step 4 — Select the best answer
+Compare candidate facts against the exact question. Prefer a directly relevant, specific name, title, number, place, or activity over a repeated generic description. Distinguish what happened from what was merely offered, planned, or explicitly not done. Treat an image description as evidence about the image rather than a person's general life.
+
+Step 5 — Ground time
+Use the question message's created_at timestamp as the reference time. Use explicit dates from memories and resolve relative expressions against the conversation timeline, not the current wall clock. When similar events occurred at different times, enumerate them before selecting the event that matches the question. For durations, identify the start and end before calculating.
+
+Step 6 — Check inclusion
+For list and count questions, re-scan all relevant memories and include every distinct supported item. Keep an item when evidence supports it; remove it only when it is a duplicate or conflicts with a more directly relevant fact.
+
+Step 7 — Commit and answer
+Give a direct, specific answer. Make reasonable deductions from supplied facts, but do not invent names, dates, places, titles, or events. If an exact detail is unavailable, answer with the most specific supported information. For an opinion or hypothetical question, follow the most direct causal evidence in the memories.
+
+Finish with the final user-facing answer after the marker "ANSWER:".

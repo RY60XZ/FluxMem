@@ -22,9 +22,31 @@ class InfrastructureSettingsTests(unittest.TestCase):
             "deepseek/deepseek-v4-flash-0731",
         )
         self.assertEqual(settings.answer_model, DEFAULT_OPENROUTER_MODEL)
+        self.assertEqual(settings.judge_model, settings.answer_model)
         self.assertEqual(settings.extraction_model, DEFAULT_OPENROUTER_MODEL)
         self.assertEqual(settings.reconciliation_model, DEFAULT_OPENROUTER_MODEL)
         self.assertEqual(settings.lifecycle_model, DEFAULT_OPENROUTER_MODEL)
+
+    def test_judge_model_defaults_to_answer_model_and_can_be_overridden(
+        self,
+    ) -> None:
+        base = {
+            "FLUXMEM_DATABASE_URL": "postgresql+psycopg://localhost/fluxmem",
+            "OPENROUTER_API_KEY": "test-key",
+            "FLUXMEM_ANSWER_MODEL": "answer-model",
+        }
+
+        shared = InfrastructureSettings.from_environment(base)
+        separate = InfrastructureSettings.from_environment(
+            {**base, "FLUXMEM_JUDGE_MODEL": "judge-model"}
+        )
+
+        self.assertEqual(shared.judge_model, "answer-model")
+        self.assertEqual(separate.judge_model, "judge-model")
+        self.assertEqual(
+            separate.judge_model_settings().model,
+            "judge-model",
+        )
 
 
 if __name__ == "__main__":

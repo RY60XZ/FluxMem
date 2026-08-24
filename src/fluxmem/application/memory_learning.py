@@ -8,7 +8,6 @@ from uuid import UUID, uuid4
 from fluxmem.application.diagnostics import MemoryDiagnosticsCollector
 from fluxmem.application.lifecycle import LifecycleAssigner
 from fluxmem.application.llm.usage import ModelUsageCollector
-from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.lifecycle import LifecycleEvaluationInput
 from fluxmem.application.ports.llm import MemoryExtractor, MemoryReconciler
 from fluxmem.application.read.retrieval import HybridMemoryRetriever
@@ -47,7 +46,6 @@ class MemoryLearning:
         memory_reconciler: MemoryReconciler,
         lifecycle_assigner: LifecycleAssigner,
         id_factory: Callable[[], UUID] = uuid4,
-        clock: Clock | None = None,
         enable_memory_extraction: bool = True,
         enable_memory_writes: bool = True,
         enable_conflict_detection: bool = True,
@@ -57,7 +55,6 @@ class MemoryLearning:
         self._memory_reconciler = memory_reconciler
         self._lifecycle_assigner = lifecycle_assigner
         self._id_factory = id_factory
-        self._clock = clock or SystemClock()
         self._enable_memory_extraction = enable_memory_extraction
         self._enable_memory_writes = enable_memory_writes
         self._enable_conflict_detection = enable_conflict_detection
@@ -241,7 +238,13 @@ class MemoryLearning:
                 )
             )
 
-        initialized_at = self._clock.now()
+        if not additions:
+            return tuple(
+                outcomes_by_index[index] for index in range(len(candidates))
+            )
+        initialized_at = max(
+            memory.created_at for _, _, _, memory in additions
+        )
         lifecycles = self._lifecycle_assigner.assign(
             items=tuple(
                 LifecycleEvaluationInput(

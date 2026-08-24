@@ -18,6 +18,9 @@ class PublicBoundaryTests(unittest.TestCase):
         ):
             self.assertFalse(hasattr(fluxmem, name), name)
 
+    def test_default_retrieval_limit_is_fifty(self) -> None:
+        self.assertEqual(fluxmem.MemoryLayerSettings().retrieval_limit, 50)
+
 
 if __name__ == "__main__":
     unittest.main()

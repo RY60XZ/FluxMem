@@ -31,6 +31,16 @@ from fluxmem_infrastructure.locomo.dataset import (
 from fluxmem_infrastructure.locomo.judge import LocomoJudgment
 
 
+_TOKEN_FIELDS = (
+    "input",
+    "output",
+    "total",
+    "cached_input",
+    "cache_write_input",
+    "reasoning_output",
+)
+
+
 class MemoryService(Protocol):
     def start_session(
         self,
@@ -245,7 +255,7 @@ class LocomoRunner:
                     content=question.question,
                     created_at=last_turn_at + timedelta(seconds=1),
                 )
-                prediction = result.answer.content
+                prediction = _final_answer(result.answer.content)
                 retrieval = _retrieval_dict(result)
                 usage = _model_usage_dict(result.usage)
             except Exception as answer_error:
@@ -371,6 +381,12 @@ def _judgment_dict(judgment: LocomoJudgment) -> dict[str, Any]:
     }
 
 
+def _final_answer(content: str) -> str:
+    if "ANSWER:" in content:
+        return content.rsplit("ANSWER:", 1)[-1].strip()
+    return content.strip()
+
+
 def _combine_usage(reports: Sequence[LLMUsageReport]) -> LLMUsageReport:
     return LLMUsageReport(
         calls=tuple(call for report in reports for call in report.calls)
@@ -457,6 +473,7 @@ def _summarize_run(
             row.get("error") is not None for row in rows
         ),
         "metrics": _judge_metrics(rows),
+        "token_usage": _run_token_usage(results=results, rows=rows),
     }
 
 
@@ -489,6 +506,95 @@ def _judge_metrics(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             )
             for category in sorted(SCORABLE_CATEGORIES)
         },
+    }
+
+
+def _run_token_usage(
+    *,
+    results: Sequence[Mapping[str, Any]],
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    ingestion_usage: list[Mapping[str, Any] | None] = []
+    for result in results:
+        ingestion = result.get("ingestion")
+        usage = ingestion.get("usage") if isinstance(ingestion, Mapping) else None
+        ingestion_usage.append(usage if isinstance(usage, Mapping) else None)
+
+    answer_usage: list[Mapping[str, Any] | None] = []
+    judge_usage: list[Mapping[str, Any] | None] = []
+    for row in rows:
+        usage = row.get("usage")
+        answer_usage.append(usage if isinstance(usage, Mapping) else None)
+        judgment = row.get("judgment")
+        usage = judgment.get("usage") if isinstance(judgment, Mapping) else None
+        judge_usage.append(usage if isinstance(usage, Mapping) else None)
+
+    return {
+        "ingestion": _aggregate_usage(
+            usages=ingestion_usage,
+            operation="turn",
+            operation_count=sum(
+                int(result.get("turn_count", 0)) for result in results
+            ),
+        ),
+        "answer": _aggregate_usage(
+            usages=answer_usage,
+            operation="question",
+            operation_count=len(rows),
+        ),
+        "judge": _aggregate_usage(
+            usages=judge_usage,
+            operation="question",
+            operation_count=len(rows),
+        ),
+    }
+
+
+def _aggregate_usage(
+    *,
+    usages: Sequence[Mapping[str, Any] | None],
+    operation: str,
+    operation_count: int,
+) -> dict[str, Any]:
+    available = [usage for usage in usages if usage is not None]
+    token_records = [
+        tokens
+        for usage in available
+        for tokens in (usage.get("tokens"),)
+        if isinstance(tokens, Mapping)
+    ]
+    totals = (
+        {
+            field: sum(int(tokens.get(field, 0)) for tokens in token_records)
+            for field in _TOKEN_FIELDS
+        }
+        if token_records
+        else None
+    )
+    usage_complete = (
+        len(available) == len(usages)
+        and all(bool(usage.get("usage_complete")) for usage in available)
+    )
+    averages = (
+        {
+            field: totals[field] / operation_count
+            for field in _TOKEN_FIELDS
+        }
+        if totals is not None and operation_count and usage_complete
+        else None
+    )
+    return {
+        "operation": operation,
+        "operation_count": operation_count,
+        "call_count": sum(
+            int(usage.get("call_count", 0)) for usage in available
+        ),
+        "reported_call_count": sum(
+            int(usage.get("reported_call_count", 0)) for usage in available
+        ),
+        "usage_complete": usage_complete,
+        "tokens": totals,
+        "average_tokens_per_operation": averages,
     }
 
 

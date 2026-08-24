@@ -47,6 +47,7 @@ def bootstrap_from_env(
     memory_context_settings: LLMContextSettings | None = None,
     retrieval_settings: HybridRetrievalSettings | None = None,
     answer_with_history: bool = True,
+    answer_instructions: str | None = None,
     **engine_options: object,
 ) -> AnsweringRuntime:
     settings = load_settings(dotenv_path=dotenv_path, environ=environ)
@@ -101,6 +102,7 @@ def bootstrap_from_env(
         provider=provider,
         settings=settings.answer_model_settings(),
         context_settings=settings.answer_context_settings(),
+        instructions=answer_instructions,
     )
     return AnsweringRuntime(
         memory=memory,

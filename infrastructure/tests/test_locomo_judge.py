@@ -9,6 +9,7 @@ from fluxmem_infrastructure.locomo.judge import (
     LLMLocomoJudge,
     LocomoJudgeLabel,
 )
+from fluxmem_infrastructure.locomo.prompts import answer_prompt
 
 
 class _Provider:
@@ -30,7 +31,13 @@ class _Provider:
 
 
 class LocomoJudgeTests(unittest.TestCase):
-    def test_uses_answer_model_and_mem0_open_domain_preprocessing(self) -> None:
+    def test_answer_prompt_defines_seven_steps(self) -> None:
+        prompt = answer_prompt()
+
+        for number in range(1, 8):
+            self.assertIn(f"Step {number}", prompt)
+
+    def test_uses_answer_model_and_open_domain_preprocessing(self) -> None:
         provider = _Provider()
         judge = LLMLocomoJudge(
             provider=provider,

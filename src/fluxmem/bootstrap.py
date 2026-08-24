@@ -32,7 +32,7 @@ class MemoryLayerSettings:
 
     maximum_history_messages: int = 128
     maximum_ingestion_batch_messages: int = 6
-    retrieval_limit: int = 10
+    retrieval_limit: int = 50
     enable_memory_extraction: bool = True
     enable_memory_writes: bool = True
     enable_conflict_detection: bool = True

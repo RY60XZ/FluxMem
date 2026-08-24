@@ -42,10 +42,16 @@ class AnswerGenerator:
         provider: TextStreamingModelProvider,
         settings: AnswerModelSettings,
         context_settings: AnswerContextSettings | None = None,
+        instructions: str | None = None,
     ) -> None:
         self._provider = provider
         self._settings = settings
         self._context_settings = context_settings or AnswerContextSettings()
+        self._instructions = (
+            _answer_prompt() if instructions is None else instructions.strip()
+        )
+        if not self._instructions:
+            raise ValueError("answer instructions cannot be blank")
 
     @property
     def model(self) -> str:
@@ -58,7 +64,7 @@ class AnswerGenerator:
         history: MessagePack,
         memory_pack: MemoryPack,
     ) -> GeneratedAnswer:
-        instructions = _answer_prompt()
+        instructions = self._instructions
         context = render_answer_context(
             query=query,
             history=history,
