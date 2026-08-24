@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fluxmem"
 version = "0.1.0"
-description = "An agentic memory lifecycle system"
+description = "A provider-neutral conversational memory layer"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,17 +14,6 @@ dependencies = [
     "SQLAlchemy>=2.0,<3.0",
     "pgvector>=0.4,<1.0",
 ]
-
-[project.optional-dependencies]
-llm-openai = ["openai>=1.66,<3.0"]
-local = [
-    "openai>=1.66,<3.0",
-    "python-dotenv>=1.0,<2.0",
-]
-locomo = ["nltk>=3.9,<4.0"]
-
-[project.scripts]
-fluxmem-locomo = "fluxmem.benchmarks.locomo.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

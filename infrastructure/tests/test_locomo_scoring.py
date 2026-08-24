@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from fluxmem.benchmarks.locomo.scoring import (
+from fluxmem_infrastructure.locomo.scoring import (
     evidence_recall,
     score_answer,
     token_f1,

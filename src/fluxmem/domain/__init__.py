@@ -8,6 +8,7 @@ from fluxmem.domain.conflict import (
 from fluxmem.domain.info_pack import (
     FeedbackPack,
     MemoryPack,
+    MemoryRetrievalResult,
     MemoryUsage,
     MessagePack,
     RetrievedMemory,
@@ -15,12 +16,10 @@ from fluxmem.domain.info_pack import (
     UsageType,
 )
 from fluxmem.domain.llm import (
-    ConversationTurnDiagnostics,
-    ConversationTurnResult,
-    GeneratedAnswer,
-    GeneratedAnswerStream,
     LLMTaskKind,
     LLMUsageReport,
+    MemoryDiagnostics,
+    MessageIngestionResult,
     MemoryWriteOutcome,
     MemoryWriteStatus,
     ModelCallDiagnostics,
@@ -52,7 +51,6 @@ from fluxmem.domain.retrieval import (
     IndexStatus,
     MemoryIndex,
     MemorySearchQuery,
-    QueryType,
 )
 
 __all__ = (
@@ -72,12 +70,10 @@ __all__ = (
     "MemoryPack",
     "MemorySearchQuery",
     "MemoryUsage",
-    "ConversationTurnDiagnostics",
-    "ConversationTurnResult",
-    "GeneratedAnswer",
-    "GeneratedAnswerStream",
     "LLMTaskKind",
     "LLMUsageReport",
+    "MemoryDiagnostics",
+    "MemoryRetrievalResult",
     "MemoryWriteOutcome",
     "MemoryWriteStatus",
     "ModelCallDiagnostics",
@@ -87,10 +83,10 @@ __all__ = (
     "ReconciliationAction",
     "ReconciliationDecision",
     "Message",
+    "MessageIngestionResult",
     "MessagePack",
     "RetrievedMemory",
     "TurnMemoryPacks",
-    "QueryType",
     "Session",
     "Status",
     "Tier",

@@ -13,7 +13,6 @@ from fluxmem.domain.retrieval import (
     Embedding,
     MemoryIndex,
     MemorySearchQuery,
-    QueryType,
 )
 
 
@@ -84,7 +83,6 @@ class RetrievalRepository(Protocol):
         *,
         query_id: UUID,
         session_id: UUID,
-        query_type: QueryType,
         candidates: tuple[RetrievedMemory, ...],
         created_at: datetime,
     ) -> None: ...
@@ -95,7 +93,6 @@ class RetrievalRepository(Protocol):
         query_id: UUID,
         user_id: UUID,
         session_id: UUID,
-        query_type: QueryType | None = None,
     ) -> tuple[UUID, ...] | None: ...
 
 

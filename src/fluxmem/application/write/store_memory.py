@@ -34,7 +34,6 @@ from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
     IndexStatus,
     MemoryIndex,
-    QueryType,
 )
 
 
@@ -179,7 +178,6 @@ class StoreMemory:
             query_id=query_id,
             user_id=user_id,
             session_id=session_id,
-            query_type=QueryType.ANSWERING,
         )
         if candidate_ids is None:
             return ()

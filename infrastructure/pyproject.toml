@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fluxmem-infrastructure"
+version = "0.1.0"
+description = "Example answering runtime and LoCoMo harness for FluxMem"
+requires-python = ">=3.11"
+dependencies = [
+    "fluxmem>=0.1.0",
+    "openai>=1.66,<3.0",
+    "python-dotenv>=1.0,<2.0",
+]
+
+[project.optional-dependencies]
+locomo = ["nltk>=3.9,<4.0"]
+
+[project.scripts]
+fluxmem-locomo = "fluxmem_infrastructure.locomo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"fluxmem_infrastructure.answering.prompts" = ["*.txt"]

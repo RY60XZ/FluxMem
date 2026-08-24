@@ -60,6 +60,26 @@ class TurnMemoryPacks:
 
 
 @dataclass(frozen=True, slots=True)
+class MemoryRetrievalResult:
+    """An ephemeral query and the memory context returned for external use."""
+
+    query: Message
+    retrieval: TurnMemoryPacks
+
+    def __post_init__(self) -> None:
+        if self.query.session_id != self.retrieval.expanded.session_id:
+            raise ValueError("query and retrieval must share one session")
+
+    @property
+    def query_id(self) -> UUID:
+        return self.retrieval.expanded.query_id
+
+    @property
+    def context(self) -> MemoryPack:
+        return self.retrieval.expanded
+
+
+@dataclass(frozen=True, slots=True)
 class MessagePack:
     """Chronological history for one user-owned session."""
 

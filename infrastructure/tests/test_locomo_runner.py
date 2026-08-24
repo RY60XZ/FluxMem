@@ -6,20 +6,27 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fluxmem.benchmarks.locomo.dataset import (
+from fluxmem import (
+    MemoryPack,
+    MemoryRetrievalResult,
+    Message,
+    MessageIngestionResult,
+    RetrievedMemory,
+    Session,
+)
+from fluxmem.domain.info_pack import TurnMemoryPacks
+from fluxmem.domain.memory import Memory
+from fluxmem_infrastructure.answering import AnswerResult
+from fluxmem_infrastructure.locomo.dataset import (
     LocomoConversation,
     LocomoQuestion,
     LocomoSession,
     LocomoTurn,
 )
-from fluxmem.benchmarks.locomo.runner import LocomoRunner
-from fluxmem.domain.info_pack import MemoryPack, RetrievedMemory
-from fluxmem.domain.llm import MemoryQueryResult, MessageIngestionResult
-from fluxmem.domain.memory import Memory
-from fluxmem.domain.message import Message, Session
+from fluxmem_infrastructure.locomo.runner import LocomoRunner
 
 
-class _Services:
+class _Memory:
     def __init__(self) -> None:
         self.messages_by_user: dict[UUID, list[Message]] = {}
 
@@ -38,18 +45,22 @@ class _Services:
         self.messages_by_user[user_id].extend(messages)
         return MessageIngestionResult(messages=tuple(messages))
 
-    def query(
+
+class _Answering:
+    def __init__(self, memory: _Memory) -> None:
+        self._memory = memory
+
+    def answer(
         self,
         *,
         user_id,
         session_id,
         content,
-        agent_id=None,
-        diagnostics=False,
         created_at=None,
+        retrieval_limit=None,
     ):
-        del diagnostics
-        source = self.messages_by_user[user_id][0]
+        del retrieval_limit
+        source = self._memory.messages_by_user[user_id][0]
         memory_id = uuid4()
         memory = Memory(
             memory_id=memory_id,
@@ -83,21 +94,27 @@ class _Services:
             message_id=uuid4(),
             session_id=session_id,
             role="assistant",
-            agent_id=agent_id,
+            agent_id="test-answerer",
             content="Toronto",
             created_at=created_at,
         )
-        return MemoryQueryResult(
+        retrieval = MemoryRetrievalResult(
             query=query,
+            retrieval=TurnMemoryPacks(seeds=pack, expanded=pack),
+        )
+        return AnswerResult(
             answer=answer,
-            answering_memory_pack=pack,
+            retrieval=retrieval,
             context_memory_ids=(memory_id,),
+            model="test-answerer",
+            response_id=None,
+            usage=None,
         )
 
 
 class LocomoRunnerTests(unittest.TestCase):
     def test_full_mode_writes_exactly_ten_conversation_artifacts(self) -> None:
-        services = _Services()
+        memory = _Memory()
         conversations = tuple(
             _conversation(f"conv-{index}") for index in range(10)
         )
@@ -105,7 +122,8 @@ class LocomoRunnerTests(unittest.TestCase):
             root = Path(directory)
             output = root / "results"
             summary = LocomoRunner(
-                services=services,
+                memory=memory,
+                answering=_Answering(memory),
                 output_dir=output,
                 dataset_path=root / "locomo.json",
                 dataset_sha256="fixture",
@@ -121,16 +139,17 @@ class LocomoRunnerTests(unittest.TestCase):
         self.assertEqual(summary["evidence_recall"], 1.0)
         self.assertEqual(len(artifacts), 10)
         self.assertEqual(
-            {messages[0].agent_id for messages in services.messages_by_user.values()},
+            {messages[0].agent_id for messages in memory.messages_by_user.values()},
             {"Alice"},
         )
 
     def test_single_mode_uses_the_same_conversation_pipeline(self) -> None:
-        services = _Services()
+        memory = _Memory()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             summary = LocomoRunner(
-                services=services,
+                memory=memory,
+                answering=_Answering(memory),
                 output_dir=root / "results",
                 dataset_path=root / "locomo.json",
                 dataset_sha256="fixture",

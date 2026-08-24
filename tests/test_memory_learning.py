@@ -74,7 +74,7 @@ class LearnFromMessagesTests(unittest.TestCase):
         learning = _MemoryLearning()
         service = LearnFromMessages(
             get_session_history=_History(stored),
-            retrieval_for_answering=retrieval,
+            retriever=retrieval,
             store_message=stored,
             memory_learning=learning,
             maximum_batch_messages=6,

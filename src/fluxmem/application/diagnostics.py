@@ -9,32 +9,26 @@ from uuid import UUID
 
 from fluxmem.domain.info_pack import TurnMemoryPacks
 from fluxmem.domain.llm import (
-    ConversationTurnDiagnostics,
+    MemoryDiagnostics,
     MemoryWriteOutcome,
     ModelCallDiagnostics,
 )
 
 
-class TurnDiagnosticsCollector:
+class MemoryDiagnosticsCollector:
     """Thread-safe mutable collector behind immutable trace snapshots."""
 
     def __init__(self) -> None:
         self._lock = Lock()
         self._retrieval: TurnMemoryPacks | None = None
-        self._answer_context_memory_ids: tuple[UUID, ...] = ()
         self._model_calls: list[ModelCallDiagnostics] = []
-        self._feedback_applied: bool | None = None
         self._memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
-        self._post_answer_errors: tuple[str, ...] = ()
+        self._errors: tuple[str, ...] = ()
         self._complete = False
 
     def record_retrieval(self, retrieval: TurnMemoryPacks) -> None:
         with self._lock:
             self._retrieval = retrieval
-
-    def record_answer_context(self, memory_ids: tuple[UUID, ...]) -> None:
-        with self._lock:
-            self._answer_context_memory_ids = memory_ids
 
     def record(self, call: ModelCallDiagnostics) -> None:
         with self._lock:
@@ -43,37 +37,33 @@ class TurnDiagnosticsCollector:
     def complete(
         self,
         *,
-        feedback_applied: bool,
         memory_outcomes: tuple[MemoryWriteOutcome, ...],
-        post_answer_errors: tuple[str, ...],
+        errors: tuple[str, ...],
     ) -> None:
         with self._lock:
-            self._feedback_applied = feedback_applied
             self._memory_outcomes = memory_outcomes
-            self._post_answer_errors = post_answer_errors
+            self._errors = errors
             self._complete = True
 
-    def snapshot(self) -> ConversationTurnDiagnostics:
+    def snapshot(self) -> MemoryDiagnostics:
         with self._lock:
-            return ConversationTurnDiagnostics(
+            return MemoryDiagnostics(
                 retrieval=self._retrieval,
-                answer_context_memory_ids=self._answer_context_memory_ids,
                 model_calls=tuple(self._model_calls),
-                feedback_applied=self._feedback_applied,
                 memory_outcomes=self._memory_outcomes,
-                post_answer_errors=self._post_answer_errors,
+                errors=self._errors,
                 complete=self._complete,
             )
 
 
 def diagnostics_to_dict(
-    diagnostics: ConversationTurnDiagnostics,
+    diagnostics: MemoryDiagnostics,
 ) -> dict[str, Any]:
     """Convert a trace to JSON-compatible public data."""
 
     converted = _json_value(asdict(diagnostics))
     if not isinstance(converted, dict):
-        raise TypeError("conversation diagnostics must serialize to an object")
+        raise TypeError("memory diagnostics must serialize to an object")
     return converted
 
 

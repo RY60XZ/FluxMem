@@ -5,14 +5,14 @@ import os
 from collections.abc import Iterable, Iterator
 from typing import Any, Mapping
 
-from fluxmem.adapters.openrouter import OPENROUTER_BASE_URL
-from fluxmem.application.ports.llm import (
-    ModelInputTextBlock,
+from fluxmem_infrastructure.providers.openrouter import OPENROUTER_BASE_URL
+from fluxmem import (
     ModelProviderError,
     ModelTimeoutError,
+    ModelTokenUsage,
     StructuredModelResponse,
 )
-from fluxmem.domain.llm import ModelTokenUsage
+from fluxmem_infrastructure.answering.ports import ModelInputTextBlock
 
 
 class _OpenRouterTextStream(Iterator[str]):
@@ -70,7 +70,7 @@ class OpenRouterChatCompletionsProvider:
             from openai import OpenAI
         except ImportError as error:
             raise RuntimeError(
-                "OpenRouter adapter requires the optional 'local' dependency"
+                "OpenRouter adapter requires openai"
             ) from error
 
         resolved_api_key = api_key or os.environ.get("OPENROUTER_API_KEY")

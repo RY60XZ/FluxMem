@@ -10,11 +10,6 @@ from uuid import UUID
 EMBEDDING_DIMENSIONS = 1536
 
 
-class QueryType(StrEnum):
-    ANSWERING = "answering"
-    ADDING = "adding"
-
-
 class IndexStatus(StrEnum):
     READY = "ready"
     PENDING = "pending"

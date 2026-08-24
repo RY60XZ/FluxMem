@@ -36,9 +36,9 @@ class DecisionSource(StrEnum):
 
 
 STABILITY_DAYS: dict[DecayClass, float] = {
-    DecayClass.FAST: 1.5,
-    DecayClass.STANDARD: 10.5,
-    DecayClass.SLOW: 90.0,
+    DecayClass.FAST: 14.0,
+    DecayClass.STANDARD: 150.0,
+    DecayClass.SLOW: 360.0,
 }
 
 

@@ -9,8 +9,16 @@ from time import perf_counter
 from typing import Any, Protocol
 from uuid import UUID, uuid4, uuid5
 
-from fluxmem.benchmarks.locomo.artifacts import ArtifactWriter
-from fluxmem.benchmarks.locomo.dataset import (
+from fluxmem import (
+    LLMUsageReport,
+    Message,
+    MessageIngestionResult,
+    ModelTokenUsage,
+    Session,
+)
+from fluxmem_infrastructure.answering import AnswerResult
+from fluxmem_infrastructure.locomo.artifacts import ArtifactWriter
+from fluxmem_infrastructure.locomo.dataset import (
     EXPECTED_FULL_CONVERSATIONS,
     LOCOMO_DATASET_SHA256,
     LOCOMO_DATASET_URL,
@@ -18,20 +26,14 @@ from fluxmem.benchmarks.locomo.dataset import (
     LOCOMO_REVISION,
     LocomoConversation,
 )
-from fluxmem.benchmarks.locomo.scoring import (
+from fluxmem_infrastructure.locomo.scoring import (
     CATEGORY_NAMES,
     evidence_recall,
     score_answer,
 )
-from fluxmem.domain.llm import (
-    LLMUsageReport,
-    MemoryQueryResult,
-    MessageIngestionResult,
-)
-from fluxmem.domain.message import Message, Session
 
 
-class LocomoServices(Protocol):
+class MemoryService(Protocol):
     def start_session(
         self,
         *,
@@ -47,16 +49,17 @@ class LocomoServices(Protocol):
         diagnostics: bool = False,
     ) -> MessageIngestionResult: ...
 
-    def query(
+
+class AnsweringService(Protocol):
+    def answer(
         self,
         *,
         user_id: UUID,
         session_id: UUID,
         content: str,
-        agent_id: str | None = None,
-        diagnostics: bool = False,
         created_at: datetime | None = None,
-    ) -> MemoryQueryResult: ...
+        retrieval_limit: int | None = None,
+    ) -> AnswerResult: ...
 
 
 class LocomoRunner:
@@ -65,7 +68,8 @@ class LocomoRunner:
     def __init__(
         self,
         *,
-        services: LocomoServices,
+        memory: MemoryService,
+        answering: AnsweringService,
         output_dir: Path,
         dataset_path: Path,
         dataset_sha256: str,
@@ -76,7 +80,8 @@ class LocomoRunner:
     ) -> None:
         if mode not in {"all", "single"}:
             raise ValueError("LoCoMo mode must be 'all' or 'single'")
-        self._services = services
+        self._memory = memory
+        self._answering = answering
         self._artifacts = ArtifactWriter(output_dir)
         self._dataset_path = dataset_path
         self._dataset_sha256 = dataset_sha256
@@ -173,7 +178,7 @@ class LocomoRunner:
             self._run_id,
             f"locomo:{conversation.sample_id}:session",
         )
-        self._services.start_session(user_id=user_id, session_id=session_id)
+        self._memory.start_session(user_id=user_id, session_id=session_id)
 
         dia_id_by_message_id: dict[UUID, str] = {}
         ingestion_reports: list[LLMUsageReport] = []
@@ -201,7 +206,7 @@ class LocomoRunner:
                         created_at=turn.occurred_at,
                     )
                 )
-            imported = self._services.ingest_messages(
+            imported = self._memory.ingest_messages(
                 user_id=user_id,
                 messages=messages,
             )
@@ -216,7 +221,7 @@ class LocomoRunner:
         for question_index, question in enumerate(conversation.questions):
             question_started = perf_counter()
             try:
-                result = self._services.query(
+                result = self._answering.answer(
                     user_id=user_id,
                     session_id=session_id,
                     content=question.question,
@@ -237,14 +242,14 @@ class LocomoRunner:
                     retrieved=retrieved_dia_ids,
                 )
                 error = None
-                usage = _usage_dict(result.llm_usage)
+                usage = _model_usage_dict(result.usage)
             except Exception as query_error:
                 prediction = ""
                 retrieved_dia_ids = ()
                 answer_score = 0.0
                 recall = 0.0 if question.evidence else 1.0
                 error = _error_text(query_error)
-                usage = _usage_dict(LLMUsageReport())
+                usage = _model_usage_dict(None)
             question_results.append(
                 {
                     "index": question_index,
@@ -297,13 +302,13 @@ class LocomoRunner:
 
 def _retrieved_dia_ids(
     *,
-    result: MemoryQueryResult,
+    result: AnswerResult,
     dia_id_by_message_id: Mapping[UUID, str],
 ) -> tuple[str, ...]:
     context_ids = set(result.context_memory_ids)
     source_ids: list[str] = []
     seen: set[str] = set()
-    for retrieved in result.answering_memory_pack.memories:
+    for retrieved in result.retrieval.context.memories:
         if retrieved.memory.memory_id not in context_ids:
             continue
         dia_id = dia_id_by_message_id.get(retrieved.memory.message_id)
@@ -335,6 +340,26 @@ def _usage_dict(report: LLMUsageReport) -> dict[str, Any]:
                 "reasoning_output": totals.reasoning_output_tokens,
             }
             if totals is not None
+            else None
+        ),
+    }
+
+
+def _model_usage_dict(usage: ModelTokenUsage | None) -> dict[str, Any]:
+    return {
+        "call_count": 1,
+        "reported_call_count": int(usage is not None),
+        "usage_complete": usage is not None,
+        "tokens": (
+            {
+                "input": usage.input_tokens,
+                "output": usage.output_tokens,
+                "total": usage.total_tokens,
+                "cached_input": usage.cached_input_tokens,
+                "cache_write_input": usage.cache_write_input_tokens,
+                "reasoning_output": usage.reasoning_output_tokens,
+            }
+            if usage is not None
             else None
         ),
     }

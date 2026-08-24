@@ -3,9 +3,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fluxmem.adapters.openrouter import OPENROUTER_BASE_URL
-from fluxmem.application.ports.embeddings import EmbeddingProviderError
-from fluxmem.domain.retrieval import EMBEDDING_DIMENSIONS, Embedding
+from fluxmem import EMBEDDING_DIMENSIONS, Embedding, EmbeddingProviderError
+from fluxmem_infrastructure.providers.openrouter import OPENROUTER_BASE_URL
 
 
 class OpenRouterEmbeddingProvider:
@@ -41,8 +40,7 @@ class OpenRouterEmbeddingProvider:
             from openai import OpenAI
         except ImportError as error:
             raise RuntimeError(
-                "OpenRouter embedding adapter requires the optional "
-                "'local' dependency"
+                "OpenRouter embedding adapter requires openai"
             ) from error
 
         resolved_api_key = api_key or os.environ.get("OPENROUTER_API_KEY")

@@ -11,7 +11,6 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
-    Text,
     Uuid,
     func,
 )
@@ -24,13 +23,6 @@ class RetrievalQueryRow(Base):
     """One user-scoped retrieval event, including empty result sets."""
 
     __tablename__ = "retrieval_queries"
-    __table_args__ = (
-        CheckConstraint(
-            "query_type IN ('answering', 'adding')",
-            name="retrieval_queries_type",
-        ),
-    )
-
     query_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
@@ -41,7 +33,6 @@ class RetrievalQueryRow(Base):
         ForeignKey("sessions.session_id"),
         nullable=False,
     )
-    query_type: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

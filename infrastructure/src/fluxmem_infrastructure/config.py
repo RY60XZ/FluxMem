@@ -5,17 +5,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from fluxmem.adapters.embeddings import OpenRouterEmbeddingProvider
-from fluxmem.adapters.llm import (
-    OPENROUTER_BASE_URL,
-    OpenRouterChatCompletionsProvider,
+from fluxmem import LLMContextSettings, LLMTaskSettings, MemoryLayerSettings
+from fluxmem_infrastructure.answering import (
+    AnswerContextSettings,
+    AnswerModelSettings,
 )
-from fluxmem.application.llm import (
-    LLMContextSettings,
-    LLMIntegrationSettings,
-    LLMTaskSettings,
-)
-from fluxmem.bootstrap import FluxMemServices, bootstrap
+from fluxmem_infrastructure.providers.openrouter import OPENROUTER_BASE_URL
 
 
 DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731"
@@ -23,8 +18,8 @@ DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 
 
 @dataclass(frozen=True, slots=True)
-class LocalRuntimeSettings:
-    """Validated local configuration without exposing secrets in repr output."""
+class InfrastructureSettings:
+    """Validated configuration for the example OpenRouter runtime."""
 
     database_url: str = field(repr=False)
     openrouter_api_key: str = field(repr=False)
@@ -38,6 +33,7 @@ class LocalRuntimeSettings:
     openrouter_app_name: str | None = None
     llm_timeout_seconds: float = 60.0
     llm_maximum_output_tokens: int = 2_048
+    memory_history_messages: int = 128
     answer_history_messages: int = 128
     answer_input_token_budget: int = 64_000
     embedding_timeout_seconds: float = 30.0
@@ -52,17 +48,15 @@ class LocalRuntimeSettings:
     def from_environment(
         cls,
         environ: Mapping[str, str] | None = None,
-    ) -> LocalRuntimeSettings:
+    ) -> InfrastructureSettings:
         values = os.environ if environ is None else environ
-        shared_model = _optional(values, "FLUXMEM_LLM_MODEL") or (
-            DEFAULT_OPENROUTER_MODEL
+        shared_model = (
+            _optional(values, "FLUXMEM_LLM_MODEL") or DEFAULT_OPENROUTER_MODEL
         )
         return cls(
             database_url=_required(values, "FLUXMEM_DATABASE_URL"),
             openrouter_api_key=_required(values, "OPENROUTER_API_KEY"),
-            answer_model=(
-                _optional(values, "FLUXMEM_ANSWER_MODEL") or shared_model
-            ),
+            answer_model=_optional(values, "FLUXMEM_ANSWER_MODEL") or shared_model,
             extraction_model=(
                 _optional(values, "FLUXMEM_EXTRACTION_MODEL") or shared_model
             ),
@@ -84,93 +78,82 @@ class LocalRuntimeSettings:
             ),
             openrouter_app_name=_optional(values, "OPENROUTER_APP_NAME"),
             llm_timeout_seconds=_positive_float(
-                values,
-                "FLUXMEM_LLM_TIMEOUT_SECONDS",
-                default=60.0,
+                values, "FLUXMEM_LLM_TIMEOUT_SECONDS", default=60.0
             ),
             llm_maximum_output_tokens=_positive_int(
-                values,
-                "FLUXMEM_LLM_MAX_OUTPUT_TOKENS",
-                default=2_048,
+                values, "FLUXMEM_LLM_MAX_OUTPUT_TOKENS", default=2_048
+            ),
+            memory_history_messages=_positive_int(
+                values, "FLUXMEM_MEMORY_HISTORY_MESSAGES", default=128
             ),
             answer_history_messages=_positive_int(
-                values,
-                "FLUXMEM_ANSWER_HISTORY_MESSAGES",
-                default=128,
+                values, "FLUXMEM_ANSWER_HISTORY_MESSAGES", default=128
             ),
             answer_input_token_budget=_positive_int(
-                values,
-                "FLUXMEM_ANSWER_INPUT_TOKEN_BUDGET",
-                default=64_000,
+                values, "FLUXMEM_ANSWER_INPUT_TOKEN_BUDGET", default=64_000
             ),
             embedding_timeout_seconds=_positive_float(
-                values,
-                "FLUXMEM_EMBEDDING_TIMEOUT_SECONDS",
-                default=30.0,
+                values, "FLUXMEM_EMBEDDING_TIMEOUT_SECONDS", default=30.0
             ),
             openrouter_strict_json_schema=_boolean(
-                values,
-                "FLUXMEM_OPENROUTER_STRICT_JSON_SCHEMA",
-                default=False,
+                values, "FLUXMEM_OPENROUTER_STRICT_JSON_SCHEMA", default=False
             ),
             openrouter_prompt_caching=_boolean(
-                values,
-                "FLUXMEM_OPENROUTER_PROMPT_CACHING",
-                default=True,
+                values, "FLUXMEM_OPENROUTER_PROMPT_CACHING", default=True
             ),
             enable_memory_extraction=_boolean(
-                values,
-                "FLUXMEM_ENABLE_MEMORY_EXTRACTION",
-                default=True,
+                values, "FLUXMEM_ENABLE_MEMORY_EXTRACTION", default=True
             ),
             enable_memory_writes=_boolean(
-                values,
-                "FLUXMEM_ENABLE_MEMORY_WRITES",
-                default=True,
+                values, "FLUXMEM_ENABLE_MEMORY_WRITES", default=True
             ),
             enable_conflict_detection=_boolean(
-                values,
-                "FLUXMEM_ENABLE_CONFLICT_DETECTION",
-                default=True,
+                values, "FLUXMEM_ENABLE_CONFLICT_DETECTION", default=True
             ),
             enable_llm_lifecycle=_boolean(
-                values,
-                "FLUXMEM_ENABLE_LLM_LIFECYCLE",
-                default=True,
+                values, "FLUXMEM_ENABLE_LLM_LIFECYCLE", default=True
             ),
         )
 
-    def llm_settings(self) -> LLMIntegrationSettings:
-        def task(model: str) -> LLMTaskSettings:
-            return LLMTaskSettings(
-                model=model,
-                timeout_seconds=self.llm_timeout_seconds,
-                maximum_output_tokens=self.llm_maximum_output_tokens,
-            )
+    def task_settings(self, model: str) -> LLMTaskSettings:
+        return LLMTaskSettings(
+            model=model,
+            timeout_seconds=self.llm_timeout_seconds,
+            maximum_output_tokens=self.llm_maximum_output_tokens,
+        )
 
-        return LLMIntegrationSettings(
-            answer=task(self.answer_model),
-            extraction=task(self.extraction_model),
-            reconciliation=task(self.reconciliation_model),
-            lifecycle=task(self.lifecycle_model),
-            context=LLMContextSettings(
-                maximum_history_messages=self.answer_history_messages,
-                maximum_answer_input_tokens=self.answer_input_token_budget,
-            ),
+    def memory_settings(self) -> MemoryLayerSettings:
+        return MemoryLayerSettings(
+            maximum_history_messages=self.memory_history_messages,
             enable_memory_extraction=self.enable_memory_extraction,
             enable_memory_writes=self.enable_memory_writes,
             enable_conflict_detection=self.enable_conflict_detection,
-            enable_llm_lifecycle=self.enable_llm_lifecycle,
+        )
+
+    def memory_context_settings(self) -> LLMContextSettings:
+        return LLMContextSettings(
+            maximum_history_messages=self.memory_history_messages,
+        )
+
+    def answer_model_settings(self) -> AnswerModelSettings:
+        return AnswerModelSettings(
+            model=self.answer_model,
+            timeout_seconds=self.llm_timeout_seconds,
+            maximum_output_tokens=self.llm_maximum_output_tokens,
+        )
+
+    def answer_context_settings(self) -> AnswerContextSettings:
+        return AnswerContextSettings(
+            maximum_history_messages=self.answer_history_messages,
+            maximum_input_tokens=self.answer_input_token_budget,
         )
 
 
-def load_local_settings(
+def load_settings(
     *,
     dotenv_path: str | Path | None = ".env",
     environ: Mapping[str, str] | None = None,
-) -> LocalRuntimeSettings:
-    """Load `.env` values, then overlay real/process-supplied environment values."""
-
+) -> InfrastructureSettings:
     combined: dict[str, str] = {}
     if dotenv_path is not None:
         path = Path(dotenv_path)
@@ -179,7 +162,7 @@ def load_local_settings(
                 from dotenv import dotenv_values
             except ImportError as error:
                 raise RuntimeError(
-                    "Loading a .env file requires the optional 'local' dependency"
+                    "Loading a .env file requires python-dotenv"
                 ) from error
             combined.update(
                 {
@@ -188,53 +171,13 @@ def load_local_settings(
                     if isinstance(value, str)
                 }
             )
-    overrides = os.environ if environ is None else environ
-    combined.update(overrides)
-    return LocalRuntimeSettings.from_environment(combined)
-
-
-def bootstrap_from_env(
-    *,
-    dotenv_path: str | Path | None = ".env",
-    environ: Mapping[str, str] | None = None,
-    **engine_options: object,
-) -> FluxMemServices:
-    """Build the complete local FluxMem stack through OpenRouter."""
-
-    settings = load_local_settings(
-        dotenv_path=dotenv_path,
-        environ=environ,
-    )
-    model_provider = OpenRouterChatCompletionsProvider(
-        api_key=settings.openrouter_api_key,
-        base_url=settings.openrouter_base_url,
-        http_referer=settings.openrouter_http_referer,
-        app_name=settings.openrouter_app_name,
-        strict_json_schema=settings.openrouter_strict_json_schema,
-        enable_prompt_caching=settings.openrouter_prompt_caching,
-    )
-    embedding_provider = OpenRouterEmbeddingProvider(
-        api_key=settings.openrouter_api_key,
-        base_url=settings.openrouter_base_url,
-        model=settings.embedding_model,
-        timeout_seconds=settings.embedding_timeout_seconds,
-        http_referer=settings.openrouter_http_referer,
-        app_name=settings.openrouter_app_name,
-    )
-    return bootstrap(
-        database_url=settings.database_url,
-        embedding_provider=embedding_provider,
-        structured_model_provider=model_provider,
-        llm_settings=settings.llm_settings(),
-        **engine_options,
-    )
+    combined.update(os.environ if environ is None else environ)
+    return InfrastructureSettings.from_environment(combined)
 
 
 def _optional(environ: Mapping[str, str], name: str) -> str | None:
     value = environ.get(name)
-    if value is None or not value.strip():
-        return None
-    return value.strip()
+    return value.strip() if value is not None and value.strip() else None
 
 
 def _required(environ: Mapping[str, str], name: str) -> str:
@@ -245,10 +188,7 @@ def _required(environ: Mapping[str, str], name: str) -> str:
 
 
 def _positive_float(
-    environ: Mapping[str, str],
-    name: str,
-    *,
-    default: float,
+    environ: Mapping[str, str], name: str, *, default: float
 ) -> float:
     raw = _optional(environ, name)
     if raw is None:
@@ -263,10 +203,7 @@ def _positive_float(
 
 
 def _positive_int(
-    environ: Mapping[str, str],
-    name: str,
-    *,
-    default: int,
+    environ: Mapping[str, str], name: str, *, default: int
 ) -> int:
     raw = _optional(environ, name)
     if raw is None:
@@ -281,15 +218,12 @@ def _positive_int(
 
 
 def _boolean(
-    environ: Mapping[str, str],
-    name: str,
-    *,
-    default: bool,
+    environ: Mapping[str, str], name: str, *, default: bool
 ) -> bool:
     raw = _optional(environ, name)
     if raw is None:
         return default
-    normalized = raw.casefold()
+    normalized = raw.lower()
     if normalized in {"1", "true", "yes", "on"}:
         return True
     if normalized in {"0", "false", "no", "off"}:

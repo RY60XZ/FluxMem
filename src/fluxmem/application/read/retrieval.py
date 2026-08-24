@@ -21,12 +21,10 @@ from fluxmem.domain.info_pack import (
     RetrievedMemory,
     TurnMemoryPacks,
 )
-from fluxmem.domain.llm import ProposedMemory
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
     MemorySearchQuery,
-    QueryType,
 )
 
 
@@ -239,7 +237,7 @@ def _expand_conflict_neighbors(
     )
 
 
-class _HybridRetrieval:
+class HybridMemoryRetriever:
     def __init__(
         self,
         *,
@@ -265,7 +263,6 @@ class _HybridRetrieval:
     def _retrieve(
         self,
         *,
-        query_type: QueryType,
         user_id: UUID,
         session_id: UUID,
         query_text: str,
@@ -318,8 +315,7 @@ class _HybridRetrieval:
             seed_memories = unit_of_work.memories.search(query=search_query)
             conflict_neighbors = ()
             if (
-                query_type is QueryType.ANSWERING
-                and seed_memories
+                seed_memories
                 and self._settings.maximum_conflicts_per_seed > 0
                 and self._settings.maximum_conflict_expansions > 0
             ):
@@ -339,7 +335,6 @@ class _HybridRetrieval:
             unit_of_work.retrievals.add(
                 query_id=query_id,
                 session_id=session_id,
-                query_type=query_type,
                 candidates=expansion.memories,
                 created_at=retrieved_at,
             )
@@ -362,10 +357,6 @@ class _HybridRetrieval:
             ),
         )
 
-
-class RetrievalForAnswering(_HybridRetrieval):
-    """Build seed and expanded views from one pre-answer turn retrieval."""
-
     def execute(
         self,
         *,
@@ -379,7 +370,6 @@ class RetrievalForAnswering(_HybridRetrieval):
             messages=(message,),
         )
         return self._retrieve(
-            query_type=QueryType.ANSWERING,
             user_id=retrieval_messages.user_id,
             session_id=retrieval_messages.session_id,
             query_text=_bounded_query_text(
@@ -388,29 +378,3 @@ class RetrievalForAnswering(_HybridRetrieval):
             ),
             limit=limit,
         )
-
-
-class RetrievalForAdding(_HybridRetrieval):
-    """Retrieve one write-time context pack for one atomic candidate."""
-
-    def execute(
-        self,
-        *,
-        user_id: UUID,
-        session_id: UUID,
-        candidate: ProposedMemory,
-        limit: int = 10,
-    ) -> MemoryPack:
-        if candidate.session_applicability not in (None, session_id):
-            raise InvalidRetrievalContextError(
-                "adding candidate is limited to a different session"
-            )
-        return self._retrieve(
-            query_type=QueryType.ADDING,
-            user_id=user_id,
-            session_id=session_id,
-            query_text=candidate.content.strip()[
-                : self._settings.max_query_characters
-            ],
-            limit=limit,
-        ).seeds

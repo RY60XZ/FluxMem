@@ -4,13 +4,13 @@ import re
 from collections.abc import Iterable, Iterator
 from typing import Any, Mapping
 
-from fluxmem.application.ports.llm import (
-    ModelInputTextBlock,
+from fluxmem import (
     ModelProviderError,
     ModelTimeoutError,
+    ModelTokenUsage,
     StructuredModelResponse,
 )
-from fluxmem.domain.llm import ModelTokenUsage
+from fluxmem_infrastructure.answering.ports import ModelInputTextBlock
 
 
 class _OpenAITextStream(Iterator[str]):
@@ -61,7 +61,7 @@ class OpenAIResponsesProvider:
             from openai import OpenAI
         except ImportError as error:
             raise RuntimeError(
-                "OpenAI adapter requires the optional 'llm-openai' dependency"
+                "OpenAI adapter requires openai"
             ) from error
         self._client = OpenAI(api_key=api_key)
 

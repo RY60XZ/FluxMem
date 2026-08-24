@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import unittest
 
-from fluxmem.local import DEFAULT_OPENROUTER_MODEL, LocalRuntimeSettings
+from fluxmem_infrastructure.config import (
+    DEFAULT_OPENROUTER_MODEL,
+    InfrastructureSettings,
+)
 
 
-class LocalSettingsTests(unittest.TestCase):
+class InfrastructureSettingsTests(unittest.TestCase):
     def test_deepseek_v4_flash_is_default_for_answering_and_llm_tasks(self) -> None:
-        settings = LocalRuntimeSettings.from_environment(
+        settings = InfrastructureSettings.from_environment(
             {
                 "FLUXMEM_DATABASE_URL": "postgresql+psycopg://localhost/fluxmem",
                 "OPENROUTER_API_KEY": "test-key",

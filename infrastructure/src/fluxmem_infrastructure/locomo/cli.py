@@ -7,15 +7,16 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from fluxmem.benchmarks.locomo.dataset import (
+from fluxmem_infrastructure.config import load_settings
+from fluxmem_infrastructure.locomo.dataset import (
     DEFAULT_DATA_PATH,
     dataset_sha256,
     ensure_official_dataset,
     load_dataset,
     select_conversations,
 )
-from fluxmem.benchmarks.locomo.runner import LocomoRunner
-from fluxmem.local import bootstrap_from_env, load_local_settings
+from fluxmem_infrastructure.locomo.runner import LocomoRunner
+from fluxmem_infrastructure.runtime import bootstrap_from_env
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,7 +75,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_all=arguments.all,
             sample_id=arguments.conversation,
         )
-        settings = load_local_settings(dotenv_path=arguments.dotenv)
+        settings = load_settings(dotenv_path=arguments.dotenv)
         model_settings = {
             "answer": settings.answer_model,
             "extraction": settings.extraction_model,
@@ -82,9 +83,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "lifecycle": settings.lifecycle_model,
             "embedding": settings.embedding_model,
         }
-        with bootstrap_from_env(dotenv_path=arguments.dotenv) as services:
+        with bootstrap_from_env(dotenv_path=arguments.dotenv) as runtime:
             summary = LocomoRunner(
-                services=services,
+                memory=runtime.memory,
+                answering=runtime.agent,
                 output_dir=arguments.output,
                 dataset_path=data_path,
                 dataset_sha256=dataset_sha256(data_path),

@@ -6,7 +6,6 @@ from importlib.resources import files
 _PROMPT_PACKAGE = "fluxmem.application.llm.prompts"
 _PROMPT_NAMES = frozenset(
     {
-        "answer",
         "lifecycle_evaluation",
         "memory_extraction",
         "memory_reconciliation",

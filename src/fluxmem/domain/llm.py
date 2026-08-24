@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Mapping
 from uuid import UUID
 
 from fluxmem.domain.conflict import ConflictProposal
-from fluxmem.domain.info_pack import MemoryPack, TurnMemoryPacks
+from fluxmem.domain.info_pack import TurnMemoryPacks
 from fluxmem.domain.memory import Memory, validate_memory_fields
 from fluxmem.domain.message import Message
 
 
 class LLMTaskKind(StrEnum):
-    ANSWER = "answer"
     EXTRACTION = "extraction"
     RECONCILIATION = "reconciliation"
     LIFECYCLE = "lifecycle"
@@ -127,54 +125,6 @@ class LLMUsageReport:
 
 
 @dataclass(frozen=True, slots=True)
-class GeneratedAnswer:
-    """An answer plus memory-use metadata validated by the application."""
-
-    content: str
-    context_memory_ids: tuple[UUID, ...]
-    attributed_memory_ids: tuple[UUID, ...] = ()
-    llm_usage: LLMUsageReport = LLMUsageReport()
-
-    def __post_init__(self) -> None:
-        if not self.content.strip():
-            raise ValueError("generated answer cannot be blank")
-        if len(set(self.context_memory_ids)) != len(self.context_memory_ids):
-            raise ValueError("context memory IDs must be unique")
-        if len(set(self.attributed_memory_ids)) != len(
-            self.attributed_memory_ids
-        ):
-            raise ValueError("attributed memory IDs must be unique")
-        if not set(self.attributed_memory_ids).issubset(self.context_memory_ids):
-            raise ValueError("attributed memories must have been placed in context")
-
-
-@dataclass(frozen=True, slots=True)
-class GeneratedAnswerStream:
-    """Provider-neutral answer text deltas plus the supplied memory context."""
-
-    chunks: Iterable[str]
-    context_memory_ids: tuple[UUID, ...]
-    _usage_supplier: Callable[[], LLMUsageReport] | None = field(
-        default=None,
-        repr=False,
-        compare=False,
-    )
-
-    def __post_init__(self) -> None:
-        if len(set(self.context_memory_ids)) != len(self.context_memory_ids):
-            raise ValueError("context memory IDs must be unique")
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.chunks)
-
-    @property
-    def llm_usage(self) -> LLMUsageReport:
-        if self._usage_supplier is None:
-            return LLMUsageReport()
-        return self._usage_supplier()
-
-
-@dataclass(frozen=True, slots=True)
 class ProposedMemory:
     """One atomic fact extracted from persisted conversational evidence."""
 
@@ -265,34 +215,19 @@ class ModelCallDiagnostics:
 
 
 @dataclass(frozen=True, slots=True)
-class ConversationTurnDiagnostics:
-    """Immutable snapshot of one opt-in workflow trace."""
+class MemoryDiagnostics:
+    """Immutable snapshot of one opt-in memory-learning trace."""
 
     retrieval: TurnMemoryPacks | None = None
-    answer_context_memory_ids: tuple[UUID, ...] = ()
     model_calls: tuple[ModelCallDiagnostics, ...] = ()
-    feedback_applied: bool | None = None
     memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
-    post_answer_errors: tuple[str, ...] = ()
+    errors: tuple[str, ...] = ()
     complete: bool = False
 
     def calls_for_task(
         self, task: LLMTaskKind
     ) -> tuple[ModelCallDiagnostics, ...]:
         return tuple(call for call in self.model_calls if call.task is task)
-
-
-@dataclass(frozen=True, slots=True)
-class ConversationTurnResult:
-    """Observable result of the critical answer path and post-answer work."""
-
-    answer: Message
-    answering_memory_pack: MemoryPack
-    feedback_applied: bool
-    memory_outcomes: tuple[MemoryWriteOutcome, ...]
-    post_answer_errors: tuple[str, ...] = ()
-    llm_usage: LLMUsageReport = LLMUsageReport()
-    diagnostics: ConversationTurnDiagnostics | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,31 +238,7 @@ class MessageIngestionResult:
     memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
     errors: tuple[str, ...] = ()
     llm_usage: LLMUsageReport = LLMUsageReport()
-    diagnostics: ConversationTurnDiagnostics | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class MemoryQueryResult:
-    """Non-learning answer result for an ephemeral query message."""
-
-    query: Message
-    answer: Message
-    answering_memory_pack: MemoryPack
-    context_memory_ids: tuple[UUID, ...]
-    llm_usage: LLMUsageReport = LLMUsageReport()
-    diagnostics: ConversationTurnDiagnostics | None = None
-
-    def __post_init__(self) -> None:
-        if self.query.session_id != self.answer.session_id:
-            raise ValueError("query and answer must share one session")
-        if self.query.session_id != self.answering_memory_pack.session_id:
-            raise ValueError("query and memory pack must share one session")
-        returned_ids = {
-            retrieved.memory.memory_id
-            for retrieved in self.answering_memory_pack.memories
-        }
-        if not set(self.context_memory_ids).issubset(returned_ids):
-            raise ValueError("answer context must come from returned memories")
+    diagnostics: MemoryDiagnostics | None = None
 
 
 def proposed_memory_to_memory(

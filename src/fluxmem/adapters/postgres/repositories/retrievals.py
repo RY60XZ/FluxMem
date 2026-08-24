@@ -10,11 +10,8 @@ from fluxmem.adapters.postgres.models.retrieval import (
     RetrievalCandidateRow,
     RetrievalQueryRow,
 )
-from fluxmem.adapters.postgres.models.lifecycle import MemoryLifecycleRow
 from fluxmem.adapters.postgres.models.session import SessionRow
 from fluxmem.domain.info_pack import RetrievedMemory
-from fluxmem.domain.lifecycle import Status
-from fluxmem.domain.retrieval import QueryType
 
 
 class SqlAlchemyRetrievalRepository:
@@ -28,7 +25,6 @@ class SqlAlchemyRetrievalRepository:
         *,
         query_id: UUID,
         session_id: UUID,
-        query_type: QueryType,
         candidates: tuple[RetrievedMemory, ...],
         created_at: datetime,
     ) -> None:
@@ -36,7 +32,6 @@ class SqlAlchemyRetrievalRepository:
             RetrievalQueryRow(
                 query_id=query_id,
                 session_id=session_id,
-                query_type=query_type.value,
                 created_at=created_at,
             )
         )
@@ -59,7 +54,6 @@ class SqlAlchemyRetrievalRepository:
         query_id: UUID,
         user_id: UUID,
         session_id: UUID,
-        query_type: QueryType | None = None,
     ) -> tuple[UUID, ...] | None:
         ownership_statement = (
             select(RetrievalQueryRow.query_id)
@@ -73,10 +67,6 @@ class SqlAlchemyRetrievalRepository:
                 SessionRow.user_id == user_id,
             )
         )
-        if query_type is not None:
-            ownership_statement = ownership_statement.where(
-                RetrievalQueryRow.query_type == query_type.value
-            )
         owned_query = self._session.scalar(ownership_statement)
         if owned_query is None:
             return None
@@ -89,9 +79,4 @@ class SqlAlchemyRetrievalRepository:
                 RetrievalCandidateRow.memory_id,
             )
         )
-        if query_type in (QueryType.ANSWERING, QueryType.ADDING):
-            statement = statement.join(
-                MemoryLifecycleRow,
-                MemoryLifecycleRow.memory_id == RetrievalCandidateRow.memory_id,
-            ).where(MemoryLifecycleRow.status == Status.ACTIVE.value)
         return tuple(self._session.scalars(statement))

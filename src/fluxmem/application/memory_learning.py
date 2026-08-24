@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from fluxmem.application.diagnostics import TurnDiagnosticsCollector
+from fluxmem.application.diagnostics import MemoryDiagnosticsCollector
 from fluxmem.application.llm.usage import ModelUsageCollector
 from fluxmem.application.ports.llm import MemoryExtractor, MemoryReconciler
-from fluxmem.application.read.retrieval import RetrievalForAnswering
+from fluxmem.application.read.retrieval import HybridMemoryRetriever
 from fluxmem.application.read.session_history import GetSessionHistory
 from fluxmem.application.write.store_memory import StoreMemory
 from fluxmem.application.write.store_message import StoreMessage
@@ -63,7 +63,7 @@ class MemoryLearning:
         extraction_pack: MemoryPack,
         reconciliation_pack: MemoryPack,
         usage_collector: ModelUsageCollector,
-        diagnostics_collector: TurnDiagnosticsCollector | None,
+        diagnostics_collector: MemoryDiagnosticsCollector | None,
     ) -> MemoryLearningResult:
         if not target_messages:
             return MemoryLearningResult(memory_outcomes=(), errors=())
@@ -125,7 +125,7 @@ class MemoryLearning:
         memory_pack: MemoryPack,
         errors: list[str],
         usage_collector: ModelUsageCollector,
-        diagnostics_collector: TurnDiagnosticsCollector | None,
+        diagnostics_collector: MemoryDiagnosticsCollector | None,
     ) -> tuple[MemoryWriteOutcome, ...]:
         if not candidates:
             return ()
@@ -219,7 +219,7 @@ class MemoryLearning:
         memory_pack: MemoryPack,
         source_created_at: datetime,
         usage_collector: ModelUsageCollector,
-        diagnostics_collector: TurnDiagnosticsCollector | None,
+        diagnostics_collector: MemoryDiagnosticsCollector | None,
     ) -> MemoryWriteOutcome:
         try:
             allowed_ids = {
@@ -294,7 +294,7 @@ class LearnFromMessages:
         self,
         *,
         get_session_history: GetSessionHistory,
-        retrieval_for_answering: RetrievalForAnswering,
+        retriever: HybridMemoryRetriever,
         store_message: StoreMessage,
         memory_learning: MemoryLearning,
         maximum_batch_messages: int,
@@ -306,7 +306,7 @@ class LearnFromMessages:
         if history_limit < 1 or retrieval_limit < 1:
             raise ValueError("learning context limits must be positive")
         self._get_session_history = get_session_history
-        self._retrieval_for_answering = retrieval_for_answering
+        self._retriever = retriever
         self._store_message = store_message
         self._memory_learning = memory_learning
         self._maximum_batch_messages = maximum_batch_messages
@@ -332,7 +332,9 @@ class LearnFromMessages:
             raise ValueError("imported message content cannot be blank")
 
         usage_collector = ModelUsageCollector()
-        diagnostics_collector = TurnDiagnosticsCollector() if diagnostics else None
+        diagnostics_collector = (
+            MemoryDiagnosticsCollector() if diagnostics else None
+        )
         outcomes: list[MemoryWriteOutcome] = []
         errors: list[str] = []
         for start in range(0, len(imported), self._maximum_batch_messages):
@@ -344,7 +346,7 @@ class LearnFromMessages:
                 session_id=session_id,
                 limit=self._history_limit,
             )
-            retrieval = self._retrieval_for_answering.execute(
+            retrieval = self._retriever.execute(
                 message=batch[-1],
                 session_history=history,
                 limit=self._retrieval_limit,
@@ -367,9 +369,8 @@ class LearnFromMessages:
         diagnostic_snapshot = None
         if diagnostics_collector is not None:
             diagnostics_collector.complete(
-                feedback_applied=False,
                 memory_outcomes=tuple(outcomes),
-                post_answer_errors=tuple(errors),
+                errors=tuple(errors),
             )
             diagnostic_snapshot = diagnostics_collector.snapshot()
         return MessageIngestionResult(

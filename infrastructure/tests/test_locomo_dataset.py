@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fluxmem.benchmarks.locomo.dataset import (
+from fluxmem_infrastructure.locomo.dataset import (
     load_dataset,
     select_conversations,
 )
