@@ -278,7 +278,7 @@ def _answer_response_input(
 
 
 def _supports_explicit_prompt_caching(model: str) -> bool:
-    """Use current explicit cache fields only for GPT-5.6+ model names."""
+    """Use current explicit cache fields for GPT-5.6+ model names."""
 
     match = re.search(r"gpt-(\d+)(?:\.(\d+))?", model.casefold())
     if match is None:
@@ -337,5 +337,4 @@ def _model_token_usage(response: object) -> ModelTokenUsage | None:
             ),
         )
     except (TypeError, ValueError):
-        # Telemetry must not invalidate otherwise usable model output.
         return None

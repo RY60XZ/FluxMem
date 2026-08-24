@@ -69,7 +69,7 @@ class RuleLifecycleEvaluator:
 
 
 class LifecyclePolicyExecutor:
-    """Validate decisions and produce the only valid initial lifecycle state."""
+    """Validate decisions and construct the initial lifecycle state."""
 
     _DECAY_CLASS_BY_TIER = {
         Tier.WORKING: DecayClass.FAST,

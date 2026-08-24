@@ -15,7 +15,7 @@ _PROMPT_NAMES = frozenset(
 
 
 def load_prompt(name: str) -> str:
-    """Load one packaged prompt without allowing arbitrary resource traversal."""
+    """Load one named packaged prompt resource."""
 
     if name not in _PROMPT_NAMES:
         raise ValueError(f"unknown LLM prompt: {name}")

@@ -115,8 +115,8 @@ class OpenRouterChatCompletionsProvider:
                 },
             }
         else:
-            # Models such as Gemma 4 expose JSON-object mode but do not enforce
-            # JSON Schema. The application still validates and repairs output.
+            # Gemma 4 supports JSON-object mode; schema conformance is validated
+            # and repaired locally.
             response_format = {"type": "json_object"}
             system_instructions = _instructions_with_schema(
                 instructions=instructions,
@@ -374,5 +374,4 @@ def _chat_token_usage(response: object) -> ModelTokenUsage | None:
             ),
         )
     except (TypeError, ValueError):
-        # Telemetry must not invalidate otherwise usable model output.
         return None

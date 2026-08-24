@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 
 class ArtifactWriter:
-    """Write one benchmark run without overwriting an earlier result."""
+    """Write one benchmark run to a new or empty output directory."""
 
     def __init__(self, output_dir: Path) -> None:
         if output_dir.exists() and any(output_dir.iterdir()):

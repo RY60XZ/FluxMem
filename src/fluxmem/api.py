@@ -97,7 +97,7 @@ class FluxMem:
         user_id: UUID,
         messages: Sequence[Message],
     ) -> tuple[UUID, ...]:
-        """Persist messages without extracting or modifying memories."""
+        """Persist messages directly, leaving memory state unchanged."""
 
         return tuple(
             self._store_message.execute(user_id=user_id, message=message)

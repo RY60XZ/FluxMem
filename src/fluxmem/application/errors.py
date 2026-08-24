@@ -14,7 +14,7 @@ class InvalidSessionApplicabilityError(ValueError):
 
 
 class InvalidRetrievalContextError(ValueError):
-    """Messages supplied to retrieval do not describe the same session."""
+    """Messages supplied to retrieval belong to different sessions."""
 
 
 class RetrievalNotFoundError(LookupError):

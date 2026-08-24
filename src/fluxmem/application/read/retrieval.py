@@ -30,7 +30,7 @@ from fluxmem.domain.retrieval import (
 
 @dataclass(frozen=True, slots=True)
 class HybridRetrievalSettings:
-    """Bound query size and expose fusion knobs without adapter coupling."""
+    """Bound query size and expose provider-neutral fusion settings."""
 
     max_query_messages: int = 16
     max_query_characters: int = 8_000
@@ -84,7 +84,7 @@ def _extend_message_pack(
     history: MessagePack,
     messages: Iterable[Message],
 ) -> MessagePack:
-    """Add messages without losing metadata or duplicating message identities."""
+    """Merge messages while preserving metadata and unique identities."""
 
     combined_messages: list[Message] = []
     seen_message_ids: set[UUID] = set()
@@ -140,7 +140,7 @@ def _expand_conflict_neighbors(
     neighbors: tuple[ConflictNeighbor, ...],
     settings: HybridRetrievalSettings,
 ) -> _ConflictExpansion:
-    """Apply fair per-seed and global budgets without adding another hop."""
+    """Apply fair per-seed and global budgets to one-hop expansion."""
 
     if not seeds or not neighbors:
         return _ConflictExpansion(

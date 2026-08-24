@@ -349,7 +349,7 @@ class MemoryLearning:
 
 
 class LearnFromMessages:
-    """Persist imported transcript messages and learn without answering."""
+    """Persist transcript messages and learn memories from them."""
 
     def __init__(
         self,

@@ -232,7 +232,7 @@ class MemoryDiagnostics:
 
 @dataclass(frozen=True, slots=True)
 class MessageIngestionResult:
-    """Result of learning from imported messages without generating a reply."""
+    """Result of memory learning from imported messages."""
 
     messages: tuple[Message, ...]
     memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()

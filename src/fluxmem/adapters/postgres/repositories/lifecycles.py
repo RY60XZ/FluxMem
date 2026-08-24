@@ -189,7 +189,7 @@ class SqlAlchemyLifecycleRepository:
 
 
 def _retain_strongest_usage(row: MemoryUsageRow, usage: MemoryUsage) -> None:
-    """Keep the strongest signal without applying reinforcement twice."""
+    """Keep the strongest signal and apply each reinforcement once."""
 
     priority = {
         UsageType.CONTEXT_INCLUDED: 0,
