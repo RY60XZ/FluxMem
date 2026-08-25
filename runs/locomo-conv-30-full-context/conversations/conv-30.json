@@ -1,0 +1,3949 @@
+{
+  "context_mode": "full",
+  "ingestion": {
+    "errors": [],
+    "memory_outcome_counts": {},
+    "usage": {
+      "call_count": 0,
+      "reported_call_count": 0,
+      "tokens": null,
+      "usage_complete": true
+    }
+  },
+  "latency_seconds": 1236.4471470420249,
+  "metrics": {
+    "by_category": {
+      "multi-hop": {
+        "accuracy": 100.0,
+        "correct": 11,
+        "judged": 11,
+        "total": 11
+      },
+      "open-domain": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "judged": 0,
+        "total": 0
+      },
+      "single-hop": {
+        "accuracy": 90.9090909090909,
+        "correct": 40,
+        "judged": 44,
+        "total": 44
+      },
+      "temporal": {
+        "accuracy": 92.3076923076923,
+        "correct": 24,
+        "judged": 26,
+        "total": 26
+      }
+    },
+    "overall": {
+      "accuracy": 92.5925925925926,
+      "correct": 75,
+      "judged": 81,
+      "total": 81
+    }
+  },
+  "question_count": 81,
+  "question_results": [
+    {
+      "answer": "19 January, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 0,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact same date as the gold answer, matching the required information perfectly.",
+        "response_id": "gen-1787678877-hrdlQ0cg2Y28U6N3dBaX",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 500,
+            "output": 32,
+            "reasoning_output": 0,
+            "total": 532
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 19.338479958008975,
+      "prediction": "January 19, 2023",
+      "question": "When Jon has lost his job as a banker?",
+      "retrieval": {
+        "memories": [],
+        "query": "When Jon has lost his job as a banker?",
+        "query_id": "5c299b3c-9501-4fa8-8337-4eb85e1244f0"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27583,
+          "output": 222,
+          "reasoning_output": 0,
+          "total": 27805
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "January, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 1,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact month and year specified in the gold answer.",
+        "response_id": "gen-1787678898-CLWUPGbKfgQy3jLRCUod",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 502,
+            "output": 28,
+            "reasoning_output": 0,
+            "total": 530
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 27.55349283304531,
+      "prediction": "Gina lost her job at Door Dash in January 2023.",
+      "question": "When Gina has lost her job at Door Dash?",
+      "retrieval": {
+        "memories": [],
+        "query": "When Gina has lost her job at Door Dash?",
+        "query_id": "343c6788-0022-4e64-b961-b05ccaa5678c"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27583,
+          "output": 195,
+          "reasoning_output": 0,
+          "total": 27778
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "by dancing",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 2,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer directly matches the gold answer's core concept of dancing.",
+        "response_id": "gen-1787678932-6Fqio2ho12c7wUwvAOBN",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 392,
+            "output": 28,
+            "reasoning_output": 0,
+            "total": 420
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 28.79728487500688,
+      "prediction": "Both Jon and Gina like to dance to destress.",
+      "question": "How do Jon and Gina both like to destress?",
+      "retrieval": {
+        "memories": [],
+        "query": "How do Jon and Gina both like to destress?",
+        "query_id": "078d34c5-7031-4c13-a81f-8d742c808cf6"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27584,
+          "output": 221,
+          "reasoning_output": 0,
+          "total": 27805
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "They lost their jobs and decided to start their own businesses.",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 3,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the core fact that they both started their own businesses after losing their jobs, which matches the gold answer.",
+        "response_id": "gen-1787678939-Cu4lQKm6VYfR9gFJUDiW",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 434,
+            "output": 45,
+            "reasoning_output": 0,
+            "total": 479
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.310159125016071,
+      "prediction": "Jon and Gina both share a passion for dancing (using it for stress relief), have both started their own businesses after losing their jobs, and provide mutual support and encouragement to each other while navigating the challenges of entrepreneurship.",
+      "question": "What do Jon and Gina both have in common?",
+      "retrieval": {
+        "memories": [],
+        "query": "What do Jon and Gina both have in common?",
+        "query_id": "f91e1aa3-7a6c-451f-98ef-d85f48ae96dc"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 4,
+          "input": 27581,
+          "output": 177,
+          "reasoning_output": 0,
+          "total": 27758
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "He lost his job and decided to start his own business to share his passion.",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 4,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures the core idea of sharing his passion, which is a key component of the gold answer.",
+        "response_id": "gen-1787678968-hKLN5KBFMonAFqfuLzWD",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 444,
+            "output": 36,
+            "reasoning_output": 0,
+            "total": 480
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 29.08692579198396,
+      "prediction": "Jon decided to start his dance studio because he is passionate about dancing (which has been his \"passion and escape\" since he was a kid) and he wants to share the joy of dancing with others and provide a space for people to express themselves.",
+      "question": "Why did Jon decide to start his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "Why did Jon decide to start his dance studio?",
+        "query_id": "5bd8d1de-ece1-40d9-9adb-648279fed2ad"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27583,
+          "output": 343,
+          "reasoning_output": 0,
+          "total": 27926
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "By the water, with natural light and Marley flooring",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 5,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all the key elements from the gold answer: being by the water, having natural light, and having Marley flooring.",
+        "response_id": "gen-1787678974-CvRZ7Tls3sn20WnMUIFm",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 544,
+            "output": 40,
+            "reasoning_output": 0,
+            "total": 584
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.640286874957383,
+      "prediction": "Jon thinks his ideal dance studio should be located downtown (for easy access) or by the water, have great natural light, and feature high-quality Marley flooring that is grippy, tough, easy to clean, and has enough bounce for dancers to move safely.",
+      "question": "What Jon thinks the ideal dance studio should look like?",
+      "retrieval": {
+        "memories": [],
+        "query": "What Jon thinks the ideal dance studio should look like?",
+        "query_id": "3dd1bb96-6581-4315-9505-6d98da5dd8b6"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27584,
+          "output": 230,
+          "reasoning_output": 0,
+          "total": 27814
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "February, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 6,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer's date exactly.",
+        "response_id": "gen-1787679011-bxLXPwnb6YvUcMmYKSyX",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 403,
+            "output": 26,
+            "reasoning_output": 0,
+            "total": 429
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 36.59561370802112,
+      "prediction": "Jon's group was performing at a festival in February 2023.",
+      "question": "When is Jon's group performing at a festival?",
+      "retrieval": {
+        "memories": [],
+        "query": "When is Jon's group performing at a festival?",
+        "query_id": "8e724209-473f-4495-9285-2ecc74126c82"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27583,
+          "output": 265,
+          "reasoning_output": 0,
+          "total": 27848
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "29 January, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 7,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact date specified in the gold answer.",
+        "response_id": "gen-1787679017-OclvLR7BAOZqrg3DbtjK",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 406,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 439
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.260477332980372,
+      "prediction": "Gina launched the ad campaign on January 29, 2023.",
+      "question": "When did Gina launch an ad campaign for her store?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina launch an ad campaign for her store?",
+        "query_id": "daf034ef-f62f-4cce-8f41-d98810a13111"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 4,
+          "input": 27582,
+          "output": 97,
+          "reasoning_output": 0,
+          "total": 27679
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "28 January 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 8,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact same date as the gold answer.",
+        "response_id": "gen-1787679035-7FbBINUQUPKlhJdoDKQp",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 393,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 426
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 18.78530391701497,
+      "prediction": "January 28, 2023",
+      "question": "When was Jon in Paris?",
+      "retrieval": {
+        "memories": [],
+        "query": "When was Jon in Paris?",
+        "query_id": "d1faf97d-12bc-4f1d-be9a-695dc491336a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27579,
+          "output": 254,
+          "reasoning_output": 0,
+          "total": 27833
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Rome",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 9,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer exactly.",
+        "response_id": "gen-1787679040-oqkhsXVnsM9HDb6FJGBv",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 379,
+            "output": 22,
+            "reasoning_output": 0,
+            "total": 401
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 4.68064554099692,
+      "prediction": "Rome",
+      "question": "Which city have both Jean and John visited?",
+      "retrieval": {
+        "memories": [],
+        "query": "Which city have both Jean and John visited?",
+        "query_id": "78f6dedf-dfb3-4cb0-a36b-a26e728fea0a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27581,
+          "output": 197,
+          "reasoning_output": 0,
+          "total": 27778
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "February, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 10,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides a specific date within the 14-day tolerance of the gold answer's month and year.",
+        "response_id": "gen-1787679054-wokUFxEvFVzetUeqoPSY",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 398,
+            "output": 38,
+            "reasoning_output": 0,
+            "total": 436
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 14.514621874957811,
+      "prediction": "February 8, 2023",
+      "question": "When did Gina team up with a local artist for some cool designs?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina team up with a local artist for some cool designs?",
+        "query_id": "c3dd21cf-b22e-461d-9962-8f43192fb77b"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27587,
+          "output": 125,
+          "reasoning_output": 0,
+          "total": 27712
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "A few years ago",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 11,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is an exact match to the gold answer.",
+        "response_id": "gen-1787679063-HwkQFteWDJR5AYsGZZ5M",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 383,
+            "output": 32,
+            "reasoning_output": 0,
+            "total": 415
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.822724665980786,
+      "prediction": "A few years ago",
+      "question": "When did Gina get her tattoo?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina get her tattoo?",
+        "query_id": "8b6466e8-8668-4f19-8a0e-d40c13f8c7c0"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27614,
+          "output": 183,
+          "reasoning_output": 0,
+          "total": 27797
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "March, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 12,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer specifies a date within the same month and year as the gold answer, satisfying the date tolerance and semantic overlap rules.",
+        "response_id": "gen-1787679079-w2C69EMkqun2W4tJax72",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 398,
+            "output": 46,
+            "reasoning_output": 0,
+            "total": 444
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 17.477939458040055,
+      "prediction": "The week before March 16, 2023",
+      "question": "When did Jon start to go to the gym?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon start to go to the gym?",
+        "query_id": "a57643ab-1a72-4582-ae77-838fdb7b8d0c"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27582,
+          "output": 47,
+          "reasoning_output": 0,
+          "total": 27629
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "16 March, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 13,
+      "judgment": {
+        "label": "WRONG",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated date of February 1, 2023, is more than 14 days away from the gold answer of March 16, 2023, and does not fall within the allowed 50 percent duration tolerance.",
+        "response_id": "gen-1787679086-80r0B6Az4cnbGhU0vjy5",
+        "score": 0.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 396,
+            "output": 72,
+            "reasoning_output": 0,
+            "total": 468
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.913963166007306,
+      "prediction": "February 1, 2023",
+      "question": "When did Gina open her online clothing store?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina open her online clothing store?",
+        "query_id": "751fe2d6-1ada-46f6-9ee6-413ee53556cc"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27581,
+          "output": 208,
+          "reasoning_output": 0,
+          "total": 27789
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "April, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 14,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer's date exactly and includes the correct context.",
+        "response_id": "gen-1787679095-LJf9SM3jFPOzTzEVqbdO",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 407,
+            "output": 37,
+            "reasoning_output": 0,
+            "total": 444
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.8382027089828625,
+      "prediction": "Jon started expanding his dance studio's social media presence in April 2023.",
+      "question": "When did Jon start expanding his studio's social media presence?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon start expanding his studio's social media presence?",
+        "query_id": "824795f2-ecab-45cb-a1df-3f87c8a1394d"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27585,
+          "output": 106,
+          "reasoning_output": 0,
+          "total": 27691
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "May, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 15,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies the month and year specified in the gold answer.",
+        "response_id": "gen-1787679118-il4Q1yBsiB3PDcwQY2C1",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 399,
+            "output": 35,
+            "reasoning_output": 0,
+            "total": 434
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 23.02735979197314,
+      "prediction": "Jon was planning to host the dance competition in May 2023.",
+      "question": "When did Jon host a dance competition?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon host a dance competition?",
+        "query_id": "5d01b5dc-5a26-4594-80b5-6e304c4cb5a2"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27581,
+          "output": 208,
+          "reasoning_output": 0,
+          "total": 27789
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "24 April, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 16,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact date specified in the gold answer.",
+        "response_id": "gen-1787679125-FHRqlFH4SeaTurcEMEag",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 411,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 444
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.810612957982812,
+      "prediction": "Jon went to the fair on April 24, 2023.",
+      "question": "When did Jon go to a fair to get more exposure for his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon go to a fair to get more exposure for his dance studio?",
+        "query_id": "aa17d691-1c3e-4e6a-b82f-035ba013df6b"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 4,
+          "input": 27587,
+          "output": 151,
+          "reasoning_output": 0,
+          "total": 27738
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "She always loved fashion trends and finding unique pieces and she lost her job so decided it was time to start her own business.",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 17,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the key reasons from the gold answer: losing her job and her passion for fashion trends and unique pieces.",
+        "response_id": "gen-1787679139-nbnP8VjweoGccEzAx0hy",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 451,
+            "output": 45,
+            "reasoning_output": 0,
+            "total": 496
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 15.752951083995868,
+      "prediction": "Gina decided to start her online clothing store because she lost her job at Door Dash and wanted to take control of her own destiny. Additionally, she wanted to blend her passion for fashion trends and finding unique pieces with her love for dance.",
+      "question": "Why did Gina decide to start her own clothing store?",
+      "retrieval": {
+        "memories": [],
+        "query": "Why did Gina decide to start her own clothing store?",
+        "query_id": "4a298409-3415-464b-905a-bd6af8d39d21"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27583,
+          "output": 131,
+          "reasoning_output": 0,
+          "total": 27714
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Yes",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 18,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies that both characters start businesses based on their passions, which directly matches the gold answer.",
+        "response_id": "gen-1787679170-QMpHzBRHlzRQiEFCMXEY",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 423,
+            "output": 42,
+            "reasoning_output": 0,
+            "total": 465
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 29.537140249973163,
+      "prediction": "Yes, both Jon and Gina start businesses based on what they love. Jon starts a dance studio because he is passionate about dancing, and Gina starts an online clothing store to blend her love for fashion and dance.",
+      "question": "Do Jon and Gina start businesses out of what they love?",
+      "retrieval": {
+        "memories": [],
+        "query": "Do Jon and Gina start businesses out of what they love?",
+        "query_id": "8f4072c6-897b-4aac-a775-8c7dfafa7ee5"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 288,
+          "reasoning_output": 0,
+          "total": 27873
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "10 May, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 19,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact date specified in the gold answer.",
+        "response_id": "gen-1787679180-KdKIysQ30Pp6FTrX7DSK",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 405,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 438
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 10.76990975002991,
+      "prediction": "Gina interviewed for a design internship on May 10, 2023.",
+      "question": "When did Gina interview for a design internship?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina interview for a design internship?",
+        "query_id": "fc2ea5fb-c0f1-4a0b-aa4a-22ab6a1c44fe"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27581,
+          "output": 122,
+          "reasoning_output": 0,
+          "total": 27703
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "27 May, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 20,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer's date exactly.",
+        "response_id": "gen-1787679192-gzeQmMpgFhLakPEd0XAN",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 406,
+            "output": 25,
+            "reasoning_output": 0,
+            "total": 431
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 10.653731625003275,
+      "prediction": "Gina got accepted for the internship on May 27, 2023.",
+      "question": "When did Gina get accepted for the design internship?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina get accepted for the design internship?",
+        "query_id": "0fbd2461-1f3f-4ce1-91e5-a5688394f195"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 179,
+          "reasoning_output": 0,
+          "total": 27761
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "May, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 21,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer identifies May 27, 2023, which falls within the 14-day tolerance window of the gold answer's May 2023.",
+        "response_id": "gen-1787679197-g1ZuRoIQmDqQFIWEAoBH",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 421,
+            "output": 59,
+            "reasoning_output": 0,
+            "total": 480
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.730917125009,
+      "prediction": "The conversation does not provide the specific date or time when Jon started reading the book, only that he was currently reading it on May 27, 2023.",
+      "question": "When did Jon start reading \"The Lean Startup\"?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon start reading \"The Lean Startup\"?",
+        "query_id": "436728bc-1ae0-42d3-adfa-30baa2a2e3e2"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27583,
+          "output": 152,
+          "reasoning_output": 0,
+          "total": 27735
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "June, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 22,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides a specific date that falls within the same month and year as the gold answer, representing a more detailed version of the same fact.",
+        "response_id": "gen-1787679202-W6vrdoi2Aa4OuQ8BeY8h",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 414,
+            "output": 50,
+            "reasoning_output": 0,
+            "total": 464
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.348714333027601,
+      "prediction": "Gina mentioned she had developed the video presentation in a message on June 13, 2023.",
+      "question": "When did Gina develop a video presentation to teach how to style her fashion pieces?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina develop a video presentation to teach how to style her fashion pieces?",
+        "query_id": "8d9c9e53-4477-4670-88c5-2bbac2b35009"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27588,
+          "output": 137,
+          "reasoning_output": 0,
+          "total": 27725
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "worked with an artist to make unique fashion pieces, made limited-edition sweatshirts, got some new offers and promotions for online store, developed a video presentation showing how to style her pieces",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 23,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes 'new offers and promotions' and 'creating a video presentation to teach customers how to style her fashion pieces,' both of which are present in the gold answer.",
+        "response_id": "gen-1787679209-CtVpt98gdE2tB9BdwwZz",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 452,
+            "output": 56,
+            "reasoning_output": 0,
+            "total": 508
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.8002023749868385,
+      "prediction": "Gina promoted her clothing store by launching ad campaigns, using new offers and promotions, planning to work with fashion bloggers and influencers, and creating a video presentation to teach customers how to style her fashion pieces.",
+      "question": "How did Gina promote her clothes store?",
+      "retrieval": {
+        "memories": [],
+        "query": "How did Gina promote her clothes store?",
+        "query_id": "37558c0d-a025-4f7f-a46a-0564af786335"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27580,
+          "output": 222,
+          "reasoning_output": 0,
+          "total": 27802
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "fair, networking events, dance competition",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 24,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all three items from the gold answer (dance competition/festival, fair, and networking events), meeting the criteria for correctness.",
+        "response_id": "gen-1787679216-EQiD0OpKqCuzlkRuuXAW",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 408,
+            "output": 49,
+            "reasoning_output": 0,
+            "total": 457
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 308.1833304169704,
+      "prediction": "Jon has participated in a dance festival performance, a fair to show off his studio, and networking events.",
+      "question": "Which events has Jon participated in to promote his business venture?",
+      "retrieval": {
+        "memories": [],
+        "query": "Which events has Jon participated in to promote his business venture?",
+        "query_id": "1c1c30ea-93c6-44e4-9290-54d676677a45"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 250,
+          "reasoning_output": 0,
+          "total": 27834
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "one-on-one metoring and training to dancers,  workshops and classes to local schools and centers",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 25,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all the key components from the gold answer, including one-on-one mentoring, training, workshops, and classes.",
+        "response_id": "gen-1787679524-gfiAB7AERL1XpOlquCly",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 420,
+            "output": 48,
+            "reasoning_output": 0,
+            "total": 468
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.162484542001039,
+      "prediction": "Jon's dance studio offers dance classes, workshops, and one-on-one mentoring and training.",
+      "question": "What does Jon's dance studio offer?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Jon's dance studio offer?",
+        "query_id": "6bb0f302-bb15-442e-977f-5bb5982e2dd5"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27581,
+          "output": 169,
+          "reasoning_output": 0,
+          "total": 27750
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "15 June, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 26,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact date specified in the gold answer, satisfying the date requirement.",
+        "response_id": "gen-1787679531-BfUM4dyQjYzZtxHSfWpN",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 408,
+            "output": 38,
+            "reasoning_output": 0,
+            "total": 446
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.525754583009984,
+      "prediction": "Jon was mentored by an amazing business dude on June 15, 2023.",
+      "question": "When did Jon receive mentorship to promote his venture?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon receive mentorship to promote his venture?",
+        "query_id": "71a7ac06-4eac-4b84-b0f2-87c07e62f6e7"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 250,
+          "reasoning_output": 0,
+          "total": 27832
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Yes",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 27,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer exactly.",
+        "response_id": "gen-1787679538-UzlchXfXiDv2JjzuU0iA",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 380,
+            "output": 29,
+            "reasoning_output": 0,
+            "total": 409
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.204407209006604,
+      "prediction": "Yes",
+      "question": "Did Jon and Gina both participate in dance competitions?",
+      "retrieval": {
+        "memories": [],
+        "query": "Did Jon and Gina both participate in dance competitions?",
+        "query_id": "d07864dc-1181-49c5-b52e-4c119ce6d8aa"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 181,
+          "reasoning_output": 0,
+          "total": 27763
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "June 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 28,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer specifies the week before June 19, 2023, which falls within the 14-day tolerance window of the gold answer's date of June 2023.",
+        "response_id": "gen-1787679561-Zth7gCphBmUKLNbdRPGb",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 398,
+            "output": 64,
+            "reasoning_output": 0,
+            "total": 462
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 23.2376476660138,
+      "prediction": "Jon was in Rome the week before June 19, 2023.",
+      "question": "When was Jon in Rome?",
+      "retrieval": {
+        "memories": [],
+        "query": "When was Jon in Rome?",
+        "query_id": "3b2f1a6d-a194-452b-9a6f-f43cd6e70c88"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27579,
+          "output": 271,
+          "reasoning_output": 0,
+          "total": 27850
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Paris, Rome",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 29,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies both cities mentioned in the gold answer.",
+        "response_id": "gen-1787679566-jBYfurVzFRFAgVlnU4yz",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 384,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 417
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 4.283330041973386,
+      "prediction": "Jon has visited Paris and Rome.",
+      "question": "Which cities has Jon visited?",
+      "retrieval": {
+        "memories": [],
+        "query": "Which cities has Jon visited?",
+        "query_id": "480be18b-478b-46a2-80e9-f884801cd22d"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27578,
+          "output": 148,
+          "reasoning_output": 0,
+          "total": 27726
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "20 June, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 30,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies the date as June 20, 2023, which matches the gold answer within the allowed date tolerance.",
+        "response_id": "gen-1787679570-ceeTOoHjNtVAedLSp0Oy",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 421,
+            "output": 50,
+            "reasoning_output": 0,
+            "total": 471
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 3.9011788750067353,
+      "prediction": "Tomorrow (relative to the message sent on June 19, 2023, which would be June 20, 2023).",
+      "question": "When Jon is planning to open his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "When Jon is planning to open his dance studio?",
+        "query_id": "fcc72187-921c-44e0-a4f7-1d1287e4775e"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 95,
+          "reasoning_output": 0,
+          "total": 27677
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "six months",
+      "category": 1,
+      "category_name": "multi-hop",
+      "error": null,
+      "index": 31,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer's duration of 5 months is within the 50 percent tolerance of the gold answer's 6 months.",
+        "response_id": "gen-1787679576-nReNqmKgxo6EyBp6QCAC",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 393,
+            "output": 48,
+            "reasoning_output": 0,
+            "total": 441
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.2337927499902435,
+      "prediction": "It took Jon 5 months to open his studio.",
+      "question": "How long did it take for Jon to open his studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "How long did it take for Jon to open his studio?",
+        "query_id": "d58daa94-9ea4-4ad4-acc8-a387b766646a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 220,
+          "reasoning_output": 0,
+          "total": 27804
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "June 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 32,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides a relative date that falls within the 14-day tolerance window of the gold answer's specific date.",
+        "response_id": "gen-1787679593-od2XptSGO4DbopEc3i0U",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 400,
+            "output": 47,
+            "reasoning_output": 0,
+            "total": 447
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 18.013869374990463,
+      "prediction": "Last week (relative to June 21, 2023)",
+      "question": "When did Gina design a limited collection of hoodies?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina design a limited collection of hoodies?",
+        "query_id": "c437164c-16fa-4ec7-ae3d-2453c7ad6c9c"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27582,
+          "output": 112,
+          "reasoning_output": 0,
+          "total": 27694
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "20 June, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 33,
+      "judgment": {
+        "label": "WRONG",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides a timeframe that is outside the 14-day tolerance window of the gold answer's date.",
+        "response_id": "gen-1787679609-uZnPoRUwCVtgTFifyci9",
+        "score": 0.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 414,
+            "output": 38,
+            "reasoning_output": 0,
+            "total": 452
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 15.482632583007216,
+      "prediction": "Jon mentioned attending a networking event \"lately\" relative to his message on July 21, 2023.",
+      "question": "When did Jon visit networking events for his store?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon visit networking events for his store?",
+        "query_id": "119bfeed-ad02-441c-bedb-728f1914a41d"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 272,
+          "reasoning_output": 0,
+          "total": 27854
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "July 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 34,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides a specific date that falls within the 14-day tolerance of the gold answer's month and year.",
+        "response_id": "gen-1787679656-PBiCxdxGhTGRsRdbsvFx",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 401,
+            "output": 47,
+            "reasoning_output": 0,
+            "total": 448
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 46.652407917019445,
+      "prediction": "Gina was noticed by fashion editors on July 9, 2023.",
+      "question": "When did Gina start being recognized by fashion editors?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina start being recognized by fashion editors?",
+        "query_id": "ba071199-430b-4ad6-83b9-109675d9e007"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 924,
+          "reasoning_output": 0,
+          "total": 28506
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "July, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 35,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides a specific date that falls within the same month and year as the gold answer, satisfying the date tolerance and semantic overlap rules.",
+        "response_id": "gen-1787679673-J7sfQ13BJ689faI8sDYE",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 403,
+            "output": 49,
+            "reasoning_output": 0,
+            "total": 452
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 17.41378404200077,
+      "prediction": "Jon started learning marketing and analytics tools on July 9, 2023.",
+      "question": "When did Jon start learning marketing and analytics tools?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon start learning marketing and analytics tools?",
+        "query_id": "39d80fb5-577e-4285-a0d5-99007d56d8f8"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 313,
+          "reasoning_output": 0,
+          "total": 27895
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "21 July 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 36,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact date specified in the gold answer.",
+        "response_id": "gen-1787679716-Lwq3w3xptvyfVvbYGQuW",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 406,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 439
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 42.969773292017635,
+      "prediction": "They decided to collaborate on July 21, 2023.",
+      "question": "When did Jon and Gina decide to collaborate to create dance content?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Jon and Gina decide to collaborate to create dance content?",
+        "query_id": "fb08238a-a9ab-490f-b153-8be75dbc0c8d"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 300,
+          "reasoning_output": 0,
+          "total": 27885
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": " 23 July, 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 37,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact same date as the gold answer, formatted as an ISO timestamp.",
+        "response_id": "gen-1787679723-CcdB4j8SE3vwtGJXj5Xu",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 416,
+            "output": 39,
+            "reasoning_output": 0,
+            "total": 455
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.577002790989354,
+      "prediction": "Gina mentioned Shia Labeouf at 2023-07-23T18:46:03Z.",
+      "question": "When did Gina mention Shia Labeouf?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina mention Shia Labeouf?",
+        "query_id": "22633235-b110-4810-a775-9fed48f5ac2b"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 186,
+          "reasoning_output": 0,
+          "total": 27767
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "21 July 2023",
+      "category": 2,
+      "category_name": "temporal",
+      "error": null,
+      "index": 38,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides the exact date specified in the gold answer, satisfying the requirement for a match.",
+        "response_id": "gen-1787679729-VHK9fscS2QYcbbrIYZTg",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 405,
+            "output": 40,
+            "reasoning_output": 0,
+            "total": 445
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.208228083036374,
+      "prediction": "Last Friday (July 21, 2023)",
+      "question": "When did Gina go to a dance class with a group of friends?",
+      "retrieval": {
+        "memories": [],
+        "query": "When did Gina go to a dance class with a group of friends?",
+        "query_id": "bfebea53-e55c-4eee-883c-472975df133c"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27586,
+          "output": 188,
+          "reasoning_output": 0,
+          "total": 27774
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Contemporary",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 39,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is an exact match to the gold answer.",
+        "response_id": "gen-1787679735-OiapANQQ60zM0utHqTMb",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 380,
+            "output": 32,
+            "reasoning_output": 0,
+            "total": 412
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.756890291988384,
+      "prediction": "Contemporary",
+      "question": "What is Gina's favorite style of dance?",
+      "retrieval": {
+        "memories": [],
+        "query": "What is Gina's favorite style of dance?",
+        "query_id": "faf5f3e7-b129-4fe0-8feb-ff2cbfb6a671"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 189,
+          "reasoning_output": 0,
+          "total": 27771
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Contemporary",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 40,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is an exact match to the gold answer.",
+        "response_id": "gen-1787679739-wuUJ81IB9ZwlmfBMncUd",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 380,
+            "output": 32,
+            "reasoning_output": 0,
+            "total": 412
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 3.6787427910021506,
+      "prediction": "Contemporary",
+      "question": "What is Jon's favorite style of dance?",
+      "retrieval": {
+        "memories": [],
+        "query": "What is Jon's favorite style of dance?",
+        "query_id": "29b02f6e-289f-4ed0-893a-59377be165ea"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 64,
+          "reasoning_output": 0,
+          "total": 27646
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Winning first place at a regionals dance competition",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 41,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the core fact of winning first place at a regional competition, and the additional details do not invalidate the correct information.",
+        "response_id": "gen-1787679751-7GRcAvhDH3CdomReJmt4",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 413,
+            "output": 47,
+            "reasoning_output": 0,
+            "total": 460
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 12.610686250030994,
+      "prediction": "Her favorite memory was winning first place at a regional competition when she was fifteen years old, performing a contemporary piece called \"Finding Freedom.\"",
+      "question": "What was Gina's favorite dancing memory?",
+      "retrieval": {
+        "memories": [],
+        "query": "What was Gina's favorite dancing memory?",
+        "query_id": "cfae11bd-a0dc-4bfe-b214-150b88c05ac9"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 288,
+          "reasoning_output": 0,
+          "total": 27869
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "\"Finding Freedom\"",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 42,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies the name of the dance piece 'Finding Freedom' and provides additional descriptive detail.",
+        "response_id": "gen-1787679760-SjCaIaxjQ9bBpvh3AMOs",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 396,
+            "output": 41,
+            "reasoning_output": 0,
+            "total": 437
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 9.67585916700773,
+      "prediction": "A contemporary piece called \"Finding Freedom.\"",
+      "question": "What kind of dance piece did Gina's team perform to win first place?",
+      "retrieval": {
+        "memories": [],
+        "query": "What kind of dance piece did Gina's team perform to win first place?",
+        "query_id": "6729aeea-2885-461a-90d7-f9d388637119"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27588,
+          "output": 154,
+          "reasoning_output": 0,
+          "total": 27742
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "They are performing at the festival",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 43,
+      "judgment": {
+        "label": "WRONG",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer describes the visual content of the photo but fails to address the core question of what the dancers represent, containing none of the information from the gold answer.",
+        "response_id": "gen-1787679778-I98DZiAs29t3F3ugf1z5",
+        "score": 0.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 396,
+            "output": 53,
+            "reasoning_output": 0,
+            "total": 449
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 17.014557916962076,
+      "prediction": "The photo shows three girls in ballet costumes sitting on a desk.",
+      "question": "What do the dancers in the photo represent?",
+      "retrieval": {
+        "memories": [],
+        "query": "What do the dancers in the photo represent?",
+        "query_id": "c1f6991e-281c-4e49-9edc-41d84883e12b"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 288,
+          "reasoning_output": 0,
+          "total": 27869
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "They look graceful",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 44,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer explicitly states that Gina notes the dancers are 'so graceful,' which is a direct match to the gold answer.",
+        "response_id": "gen-1787679787-Ted0MqcSVblQo3QAD1on",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 425,
+            "output": 45,
+            "reasoning_output": 0,
+            "total": 470
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 10.741309875040315,
+      "prediction": "Gina says the dancers look \"awesome\" and that Jon looks \"badass on stage.\" In another instance, regarding a photo of a group of dancers on a stage, she notes that they are \"so graceful.\"",
+      "question": "What does Gina say about the dancers in the photo?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Gina say about the dancers in the photo?",
+        "query_id": "d5f2b45c-f72a-42a7-a7ff-6f4460ed8f10"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27583,
+          "output": 163,
+          "reasoning_output": 0,
+          "total": 27746
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Glad",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 45,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer describes Jon as 'excited and eager,' which is a semantic paraphrase of being 'glad.'",
+        "response_id": "gen-1787679795-ye3Hq3q0P3LgwE5bSGEt",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 432,
+            "output": 42,
+            "reasoning_output": 0,
+            "total": 474
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.785627499979455,
+      "prediction": "Jon was excited and eager about the festival, stating that he \"can't wait\" for it. After the performance, he described it as \"awesome\" and noted that it served as a great reminder of why he is passionate about dancing.",
+      "question": "What is Jon's attitude towards being part of the dance festival?",
+      "retrieval": {
+        "memories": [],
+        "query": "What is Jon's attitude towards being part of the dance festival?",
+        "query_id": "72488d1e-bd10-495b-b860-30fb9c75788b"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27586,
+          "output": 146,
+          "reasoning_output": 0,
+          "total": 27732
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Marley flooring",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 46,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is an exact match to the gold answer.",
+        "response_id": "gen-1787679799-dOWBDAflmPrzmtVjCGj9",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 385,
+            "output": 25,
+            "reasoning_output": 0,
+            "total": 410
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 3.677181958046276,
+      "prediction": "Marley flooring",
+      "question": "What kind of flooring is Jon looking for in his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "What kind of flooring is Jon looking for in his dance studio?",
+        "query_id": "b1a67d01-d2f7-434c-b7ba-81d437698d44"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27585,
+          "output": 37,
+          "reasoning_output": 0,
+          "total": 27622
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "The perfect spot for her store",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 47,
+      "judgment": {
+        "label": "WRONG",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer discusses a wholesaler and expansion, which does not address the specific topic of finding a location/spot for the store mentioned in the gold answer.",
+        "response_id": "gen-1787679804-HgZzqsNLPm1vBTdLkq2S",
+        "score": 0.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 411,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 455
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 4.224026541982312,
+      "prediction": "She received a positive reply from a wholesaler, which allowed her to expand her clothing store.",
+      "question": "What did Gina find for her clothing store on 1 February, 2023?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Gina find for her clothing store on 1 February, 2023?",
+        "query_id": "3c3ca3a2-5f4d-4a91-a66e-613b9f79075a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27591,
+          "output": 58,
+          "reasoning_output": 0,
+          "total": 27649
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "the space, furniture, and decor",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 48,
+      "judgment": {
+        "label": "WRONG",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer identifies a completely different product (hoodies) than the gold answer (space, furniture, and decor), showing no semantic overlap.",
+        "response_id": "gen-1787679806-oxZ0XQHwCAI6az2Soa1c",
+        "score": 0.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 390,
+            "output": 49,
+            "reasoning_output": 0,
+            "total": 439
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 3.1839760420261882,
+      "prediction": "A limited edition line of hoodies.",
+      "question": "What did Gina design for her store?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Gina design for her store?",
+        "query_id": "c8da1a5a-8e06-4f6b-805e-8ab76b8d9a7a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27580,
+          "output": 48,
+          "reasoning_output": 0,
+          "total": 27628
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "cozy and comfortable",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 49,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the gold answer's key concept of feeling 'cozy', which satisfies the partial credit rule.",
+        "response_id": "gen-1787679812-OFTBWpPAO9PAJVGAe4nD",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 399,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 443
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 4.986624874989502,
+      "prediction": "Gina wanted her customers to feel cozy and like they were in a cool oasis.",
+      "question": "What did Gina want her customers to feel in her store?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Gina want her customers to feel in her store?",
+        "query_id": "6d8c5c98-3ced-4713-847b-6f5d0835dadc"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 116,
+          "reasoning_output": 0,
+          "total": 27700
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "hard work's paying off",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 50,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the core idea from the gold answer that her hard work has paid off.",
+        "response_id": "gen-1787679832-VWN87zgEaHTmF9mKlM5O",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 436,
+            "output": 39,
+            "reasoning_output": 0,
+            "total": 475
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 21.119736167020164,
+      "prediction": "Jon has told Gina that her store looks great and that her hard work has paid off. He also remarked that her store looks like it is growing, that the design must have taken her a long time, and that the space looks \"sick.\"",
+      "question": "What did Jon say about Gina's progress with her store?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Jon say about Gina's progress with her store?",
+        "query_id": "080a8f17-ac7a-4e73-b1a8-f4626cdf8e05"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 230,
+          "reasoning_output": 0,
+          "total": 27815
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "personal style and customer comfort",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 51,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures both key elements from the gold answer—personal style and customer comfort—while providing additional descriptive detail.",
+        "response_id": "gen-1787679843-MgZmrGyl1zw1dnKZvMcm",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 434,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 478
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 11.561016167048365,
+      "prediction": "Gina chose the furniture and decor to match her own style and to make her customers feel cozy, selecting pieces that were both stylish and comfortable. She also included a chandelier to add a \"glam feel\" that matches the store's style.",
+      "question": "What made Gina choose the furniture and decor for her store?",
+      "retrieval": {
+        "memories": [],
+        "query": "What made Gina choose the furniture and decor for her store?",
+        "query_id": "0d730624-75ec-410e-b06c-ed9a5d867ad2"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 108,
+          "reasoning_output": 0,
+          "total": 27692
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "It's the key to making them feel welcome and coming back",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 52,
+      "judgment": {
+        "label": "WRONG",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer explicitly denies that Jon made the statement and attributes it to a different person, which contradicts the gold answer's premise.",
+        "response_id": "gen-1787679849-oEMmC1HeakToRHUvsZbn",
+        "score": 0.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 415,
+            "output": 47,
+            "reasoning_output": 0,
+            "total": 462
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.895644459000323,
+      "prediction": "Jon did not say anything about creating a special experience for customers; Gina was the one who made that statement.",
+      "question": "What did Jon say about creating a special experience for customers?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Jon say about creating a special experience for customers?",
+        "query_id": "3c267abe-77bf-42fe-b838-6761c5a4f7df"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 97,
+          "reasoning_output": 0,
+          "total": 27681
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "making them want to come back",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 53,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the core idea from the gold answer that she wants to make customers want to come back.",
+        "response_id": "gen-1787679856-9qj1XhJwimSdmESLHvdw",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 425,
+            "output": 42,
+            "reasoning_output": 0,
+            "total": 467
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.166681791946758,
+      "prediction": "Gina said she wants to make her spot comfortable and inviting for her customers, aiming to create an experience that makes them feel like they are in a cool oasis and makes them want to come back.",
+      "question": "What did Gina say about creating an experience for her customers?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Gina say about creating an experience for her customers?",
+        "query_id": "13dcc772-b240-45a8-8d0c-ea8e5d12bdd6"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 81,
+          "reasoning_output": 0,
+          "total": 27665
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "The store is doing great.",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 54,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures the core idea that the store is doing well, which is a semantic match for the gold answer's 'doing great'.",
+        "response_id": "gen-1787679863-w6m2lcMtdvxb9TqLX1zL",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 440,
+            "output": 50,
+            "reasoning_output": 0,
+            "total": 490
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.374150833988097,
+      "prediction": "Gina's online clothing store is doing well, although she has described it as a \"roller coaster.\" She is currently focused on growing her customer base by using new offers and promotions, which have increased her sales, and she plans to collaborate with fashion bloggers and influencers to gain more visibility.",
+      "question": "How is Gina's store doing?",
+      "retrieval": {
+        "memories": [],
+        "query": "How is Gina's store doing?",
+        "query_id": "90f244be-f5f4-4958-89d1-3c10fb5cc2ca"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27580,
+          "output": 144,
+          "reasoning_output": 0,
+          "total": 27724
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Freedom and expressing herself through dance",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 55,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures both key elements of the gold answer: freedom and self-expression through dance.",
+        "response_id": "gen-1787679879-ALoZXewR0r3d3KlrZ0ye",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 403,
+            "output": 40,
+            "reasoning_output": 0,
+            "total": 443
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 16.722548332996666,
+      "prediction": "Freedom (to dance without worrying what people think, and a reminder to follow her passions and express herself)",
+      "question": "What does Gina's tattoo symbolize?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Gina's tattoo symbolize?",
+        "query_id": "e497417d-d279-4cef-9a68-cd4049823872"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27581,
+          "output": 65,
+          "reasoning_output": 0,
+          "total": 27646
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "dancing together and supporting each other",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 56,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures the core concept of 'dancing together' through a semantic paraphrase of having a partner to dance with.",
+        "response_id": "gen-1787679890-XxMCPx1YmvgaaKWpZQTv",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 400,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 444
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 10.625026124995202,
+      "prediction": "Jon compared their shared entrepreneurial challenges to \"having a partner to dance with.\"",
+      "question": "What did Jon and Gina compare their entrepreneurial journeys to?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Jon and Gina compare their entrepreneurial journeys to?",
+        "query_id": "aeaed88d-fae2-457c-9e9f-5c54bb5170e5"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 181,
+          "reasoning_output": 0,
+          "total": 27766
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "build relationships with customers, create a strong brand image, stay positive",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 57,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all three key points from the gold answer: building relationships with customers, creating a strong brand image, and staying positive.",
+        "response_id": "gen-1787679911-O9IaPliGiAAug347DCPp",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 0,
+            "input": 596,
+            "output": 41,
+            "reasoning_output": 0,
+            "total": 637
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 23.919174375012517,
+      "prediction": "Gina gives Jon several pieces of advice regarding his business: she tells him to ensure his brand identity stands out, to build relationships with customers to show he cares, and to stay positive to create contagious energy. She also advises him to stay passionate, focused, and resilient, to believe in himself, and to stay open to learning and improving. Additionally, she suggests using social media and collaborating with influencers for marketing, and encourages him to reach out to people in his field for help and contacts through networking.",
+      "question": "What advice does Gina give to Jon about running a successful business?",
+      "retrieval": {
+        "memories": [],
+        "query": "What advice does Gina give to Jon about running a successful business?",
+        "query_id": "05a8f640-3d7f-44af-ba70-57a01c01851c"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27585,
+          "output": 339,
+          "reasoning_output": 0,
+          "total": 27924
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "for his business",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 58,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures the core idea that the action was related to his business, which aligns with the gold answer.",
+        "response_id": "gen-1787679918-YbNXFVnuBqxBuGoSgP4z",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 389,
+            "output": 43,
+            "reasoning_output": 0,
+            "total": 432
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 4.704803375003394,
+      "prediction": "He thought it would help his business grow.",
+      "question": "Why did Jon shut down his bank account?",
+      "retrieval": {
+        "memories": [],
+        "query": "Why did Jon shut down his bank account?",
+        "query_id": "43bff924-4424-4e99-a1b7-de4e7404bd38"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 29,
+          "reasoning_output": 0,
+          "total": 27610
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "she is passionate about dance and fashion",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 59,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies Gina's passion for both dance and fashion, which matches the core idea of the gold answer.",
+        "response_id": "gen-1787679923-5BnsRbGxOk5ODH8qzucq",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 427,
+            "output": 45,
+            "reasoning_output": 0,
+            "total": 472
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 4.067393833014648,
+      "prediction": "Gina combined her clothing business with dance because she is passionate about both and wants to show her creativity and share her love for them with others; it also allows her to add dance-inspired items to her store.",
+      "question": "Why did Gina combine her clothing business with dance?",
+      "retrieval": {
+        "memories": [],
+        "query": "Why did Gina combine her clothing business with dance?",
+        "query_id": "97fbd94e-f3dc-4525-a6cc-5542f3e8dc34"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 93,
+          "reasoning_output": 0,
+          "total": 27675
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "happy",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 60,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer describes dancing as a passion and a way to feel alive, which semantically aligns with the positive emotion of being 'happy'.",
+        "response_id": "gen-1787679926-TRgF1I4W0WNNFLOt6I6b",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 402,
+            "output": 49,
+            "reasoning_output": 0,
+            "total": 451
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 3.66941895801574,
+      "prediction": "Dancing is Jon's passion, his escape, his stress-buster, and the place where he feels most alive.",
+      "question": "What does Jon's dance make him?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Jon's dance make him?",
+        "query_id": "4990d0c4-8888-41bb-bfd0-c572b5360d6f"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 63,
+          "reasoning_output": 0,
+          "total": 27644
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "a trophy",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 61,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer exactly.",
+        "response_id": "gen-1787679936-ZBbfeTABLgJTICPR8XwD",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 381,
+            "output": 29,
+            "reasoning_output": 0,
+            "total": 410
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 9.452041084005032,
+      "prediction": "A trophy",
+      "question": "What did Gina receive from a dance contest?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Gina receive from a dance contest?",
+        "query_id": "d5c8e4da-19b2-4348-977a-53765009307e"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 406,
+          "reasoning_output": 0,
+          "total": 27987
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "By reminding herself of her successes and progress, having a support system, and focusing on why she started",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 62,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all the key points from the gold answer, such as reminding herself of successes and having a support system, while adding extra detail.",
+        "response_id": "gen-1787679952-mBDr96GlKlAZ4W1pElEm",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 435,
+            "output": 50,
+            "reasoning_output": 0,
+            "total": 485
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 16.614643207984045,
+      "prediction": "Gina stays motivated and confident by reminding herself of her successes and progress, having a good support system, thinking about her big goal and why she started the business, and dancing to relieve stress.",
+      "question": "How does Gina stay confident in her business?",
+      "retrieval": {
+        "memories": [],
+        "query": "How does Gina stay confident in her business?",
+        "query_id": "289515b3-f5e0-428b-aec6-a4602f24074e"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27581,
+          "output": 190,
+          "reasoning_output": 0,
+          "total": 27771
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "fashion internship",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 63,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies the 'fashion internship' mentioned in the gold answer, and the additional details do not invalidate the core fact.",
+        "response_id": "gen-1787679959-jBmoq9pnOpsJuC4eyHHb",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 411,
+            "output": 47,
+            "reasoning_output": 0,
+            "total": 458
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.086209125001915,
+      "prediction": "Gina was accepted for a part-time fashion internship in the fashion department of an international company.",
+      "question": "What kind of professional experience did Gina get accepted for on May 23, 2023?",
+      "retrieval": {
+        "memories": [],
+        "query": "What kind of professional experience did Gina get accepted for on May 23, 2023?",
+        "query_id": "2fe1afe5-7bc7-4a4a-bed2-433733e9693a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27594,
+          "output": 138,
+          "reasoning_output": 0,
+          "total": 27732
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "fashion department of an international company",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 64,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the core information from the gold answer regarding the location being the fashion department of an international company.",
+        "response_id": "gen-1787679969-zyTsoQuuokCEaUQWejf1",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 398,
+            "output": 43,
+            "reasoning_output": 0,
+            "total": 441
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 9.260776166978758,
+      "prediction": "It is a part-time position in the fashion department of an international company.",
+      "question": "Where is Gina's fashion internship?",
+      "retrieval": {
+        "memories": [],
+        "query": "Where is Gina's fashion internship?",
+        "query_id": "f8121f46-e654-4b02-820f-f43132fa6550"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27580,
+          "output": 58,
+          "reasoning_output": 0,
+          "total": 27638
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "The Lean Startup",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 65,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer exactly in terms of the book title mentioned.",
+        "response_id": "gen-1787679977-htoHdVkIz12yz6FYwIjx",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 387,
+            "output": 36,
+            "reasoning_output": 0,
+            "total": 423
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.613105959026143,
+      "prediction": "Jon is currently reading \"The Lean Startup\".",
+      "question": "What book is Jon currently reading?",
+      "retrieval": {
+        "memories": [],
+        "query": "What book is Jon currently reading?",
+        "query_id": "7548d060-77f1-49aa-ab61-bc1b5043b1b3"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27579,
+          "output": 89,
+          "reasoning_output": 0,
+          "total": 27668
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "One-on-one mentoring and training",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 66,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the exact phrase 'one-on-one mentoring and training' from the gold answer, satisfying the partial credit and semantic overlap rules.",
+        "response_id": "gen-1787679982-mryNPYr4gcSLqMuuNl1h",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 406,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 450
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.214280750020407,
+      "prediction": "Jon is offering dance classes, workshops, and one-on-one mentoring and training.",
+      "question": "What is Jon offering to the dancers at his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "What is Jon offering to the dancers at his dance studio?",
+        "query_id": "94aaf1e1-60fa-48e9-9fcd-1c6294057338"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27584,
+          "output": 104,
+          "reasoning_output": 0,
+          "total": 27688
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "To set goals, track achievements, and find areas for improvement",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 67,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all the key points from the gold answer (set goals, track achievements, and find areas for improvement) and adds extra detail.",
+        "response_id": "gen-1787679988-KDFKPLBJipsblMUTho7L",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 429,
+            "output": 50,
+            "reasoning_output": 0,
+            "total": 479
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.231789292010944,
+      "prediction": "Jon uses the clipboard with a notepad attached to it to stay organized and motivated, as it allows him to set goals, track his achievements, and help him find areas to improve.",
+      "question": "How does Jon use the clipboard with a notepad attached to it?",
+      "retrieval": {
+        "memories": [],
+        "query": "How does Jon use the clipboard with a notepad attached to it?",
+        "query_id": "20e5dc90-f398-4b1e-912f-c967565a34db"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 72,
+          "reasoning_output": 0,
+          "total": 27657
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "quit",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 68,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer directly matches the gold answer by stating that Jon won't quit.",
+        "response_id": "gen-1787679997-d1qG0wTf0Wr9f2Mpjogl",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 390,
+            "output": 30,
+            "reasoning_output": 0,
+            "total": 420
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 8.902749375032727,
+      "prediction": "Jon tells Gina that he won't quit.",
+      "question": "What does Jon tell Gina he won't do?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Jon tell Gina he won't do?",
+        "query_id": "387601e0-84e4-43ea-a30c-168604ea0f5d"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 73,
+          "reasoning_output": 0,
+          "total": 27658
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "To clear his mind",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 69,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer matches the gold answer's core idea perfectly.",
+        "response_id": "gen-1787680008-GrXCoik6blwj4xDNldaL",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 393,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 426
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 10.65423629200086,
+      "prediction": "Jon took a trip to Rome to clear his mind.",
+      "question": "What did Jon take a trip to Rome for?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Jon take a trip to Rome for?",
+        "query_id": "43b1f15c-7ee4-4faf-98db-40f8e65e5240"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 147,
+          "reasoning_output": 0,
+          "total": 27729
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "a dance studio",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 70,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is an exact match to the gold answer.",
+        "response_id": "gen-1787680010-ncsJZgzbBtHxs3fhRZCq",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 381,
+            "output": 32,
+            "reasoning_output": 0,
+            "total": 413
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 3.3534038749639876,
+      "prediction": "A dance studio",
+      "question": "What is Jon working on opening?",
+      "retrieval": {
+        "memories": [],
+        "query": "What is Jon working on opening?",
+        "query_id": "fdba0710-8e59-4b90-a620-c07704b210c0"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27579,
+          "output": 22,
+          "reasoning_output": 0,
+          "total": 27601
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "amazing",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 71,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer provides specific descriptions that are semantically consistent with the positive sentiment of 'amazing'.",
+        "response_id": "gen-1787680015-sGaDVla7NUaJCX6POL5g",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 404,
+            "output": 33,
+            "reasoning_output": 0,
+            "total": 437
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.8182133749942295,
+      "prediction": "Gina describes the studio as a \"creative space for dancers\" and a \"go-to spot for self-expression.\"",
+      "question": "How does Gina describe the studio that Jon has opened?",
+      "retrieval": {
+        "memories": [],
+        "query": "How does Gina describe the studio that Jon has opened?",
+        "query_id": "44b66e94-8f93-4f6c-a7b8-c8dbb1de5e69"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27583,
+          "output": 69,
+          "reasoning_output": 0,
+          "total": 27652
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "excited",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 72,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies Jon's emotion as 'excited', which matches the gold answer, and provides additional descriptive detail.",
+        "response_id": "gen-1787680024-AvjKGR4k5JVAaunv5if6",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 406,
+            "output": 45,
+            "reasoning_output": 0,
+            "total": 451
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.598264415981248,
+      "prediction": "Jon is excited about the opening night, believing it will be an awesome and fun night that he won't forget.",
+      "question": "How does Jon feel about the opening night of his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "How does Jon feel about the opening night of his dance studio?",
+        "query_id": "f889c380-4bf1-480b-9927-b5f423e649cd"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27585,
+          "output": 91,
+          "reasoning_output": 0,
+          "total": 27676
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "magical",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 73,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer describes dance as something that makes worries vanish and is 'like air,' which semantically captures the essence of a 'magical' feeling.",
+        "response_id": "gen-1787680039-fZd9ar6WisjWfeLZ9WIt",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 456,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 500
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 14.624776958022267,
+      "prediction": "Gina describes dance as her go-to for stress relief, noting that once she starts, \"all my worries vanish.\" She also finds contemporary dance to be \"so expressive and graceful\" and says that it \"really speaks to me.\" Additionally, she says that \"dance is just me,\" that she \"can't picture life without it,\" and that it is \"like air.\"",
+      "question": "How does Gina describe the feeling that dance brings?",
+      "retrieval": {
+        "memories": [],
+        "query": "How does Gina describe the feeling that dance brings?",
+        "query_id": "4b93d1dc-ec2d-469f-a411-db86bdd441d6"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27582,
+          "output": 406,
+          "reasoning_output": 0,
+          "total": 27988
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "savor all the good vibes",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 74,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer captures the core idea of an 'awesome night' and positive energy, which semantically overlaps with 'savor all the good vibes'.",
+        "response_id": "gen-1787680045-PogR6Dgf4Lzhu5AE6PSR",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 412,
+            "output": 51,
+            "reasoning_output": 0,
+            "total": 463
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.470575665996876,
+      "prediction": "Jon planned for his dance studio and some other schools to bring their best moves for an awesome night of performances and judging.",
+      "question": "What does Jon plan to do at the grand opening of his dance studio?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Jon plan to do at the grand opening of his dance studio?",
+        "query_id": "b0134b3e-065c-4656-b0c9-dafc15b280c9"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27587,
+          "output": 164,
+          "reasoning_output": 0,
+          "total": 27751
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Let's live it up and make some great memories",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 75,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes the core idea of making memories, which matches the gold answer's key sentiment.",
+        "response_id": "gen-1787680051-B3Y0zRnuNhZeQZvQ4n0O",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 456,
+            "output": 41,
+            "reasoning_output": 0,
+            "total": 497
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.720138541015331,
+      "prediction": "Gina congratulated Jon, saying the studio looks amazing and noting that he had put a lot of work into it. She expressed that she was \"pumped for the launch tomorrow\" and told him, \"Don't miss a beat!\" She also mentioned she couldn't wait for the grand opening and to make more memories there.",
+      "question": "What does Gina say to Jon about the grand opening?",
+      "retrieval": {
+        "memories": [],
+        "query": "What does Gina say to Jon about the grand opening?",
+        "query_id": "f932ec8a-c46d-4120-9fc2-745ba02caf3e"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27583,
+          "output": 171,
+          "reasoning_output": 0,
+          "total": 27754
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "excitement",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 76,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer explicitly includes the gold answer's key concept of 'excitement' and provides additional supporting details.",
+        "response_id": "gen-1787680057-X5B9g7htJmd75e3kl8AV",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 452,
+            "output": 43,
+            "reasoning_output": 0,
+            "total": 495
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 6.9083066250314005,
+      "prediction": "The general sentiment about the grand opening is highly positive, characterized by excitement, anticipation, and a desire to savor the moment. Jon described it as something he \"can't wait\" for and expects to be an \"awesome\" and \"unforgettable\" night, while Gina expressed that she was \"pumped\" and \"so excited\" for the launch.",
+      "question": "What is the general sentiment about the upcoming grand opening?",
+      "retrieval": {
+        "memories": [],
+        "query": "What is the general sentiment about the upcoming grand opening?",
+        "query_id": "41e642e4-8f6e-4309-b142-c7611412e2e5"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27583,
+          "output": 177,
+          "reasoning_output": 0,
+          "total": 27760
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Hoodies",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 77,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer correctly identifies 'hoodies' as the item made, which matches the gold answer.",
+        "response_id": "gen-1787680064-LQjD8rhhZjzPnaEW1WdN",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 395,
+            "output": 40,
+            "reasoning_output": 0,
+            "total": 435
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 5.825547291024122,
+      "prediction": "a limited edition line of hoodies (specifically a hoodie with a camouflage print)",
+      "question": "What did Gina make a limited edition line of?",
+      "retrieval": {
+        "memories": [],
+        "query": "What did Gina make a limited edition line of?",
+        "query_id": "2062d6e8-5cbc-49c3-a1a7-4f391859c22a"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27582,
+          "output": 136,
+          "reasoning_output": 0,
+          "total": 27718
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "His positivity and determination",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 78,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is an exact match to the gold answer.",
+        "response_id": "gen-1787680071-Aomf5bNiKwpvnclR7M1o",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 390,
+            "output": 32,
+            "reasoning_output": 0,
+            "total": 422
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 7.024353375018109,
+      "prediction": "His positivity and determination.",
+      "question": "According to Gina, what makes Jon a perfect mentor and guide?",
+      "retrieval": {
+        "memories": [],
+        "query": "According to Gina, what makes Jon a perfect mentor and guide?",
+        "query_id": "2b0c7860-8233-4976-b44a-0178a62c62f5"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27585,
+          "output": 166,
+          "reasoning_output": 0,
+          "total": 27751
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Sprucing up his business plan, tweaking his pitch to investors, and working on an online platform.",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 80,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer includes all the key items from the gold answer and adds extra detail, which is permitted under the rules.",
+        "response_id": "gen-1787680084-vohH4X9b179PDGpWeRaE",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 433,
+            "output": 44,
+            "reasoning_output": 0,
+            "total": 477
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 13.22587929101428,
+      "prediction": "Jon plans to spruce up his business plan, tweak his pitch to investors, and work on an online platform to show off the dance studio's stuff.",
+      "question": "What plans does Jon have after receiving advice at the networking event?",
+      "retrieval": {
+        "memories": [],
+        "query": "What plans does Jon have after receiving advice at the networking event?",
+        "query_id": "51df6109-242e-453c-a1f4-f1132a5ada9c"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 0,
+          "input": 27585,
+          "output": 73,
+          "reasoning_output": 0,
+          "total": 27658
+        },
+        "usage_complete": true
+      }
+    },
+    {
+      "answer": "Helping with making content and managing his social media accounts.",
+      "category": 4,
+      "category_name": "single-hop",
+      "error": null,
+      "index": 81,
+      "judgment": {
+        "label": "CORRECT",
+        "model": "google/gemma-4-26b-a4b-it",
+        "reason": "The generated answer is a direct match to the gold answer, capturing all key facts regarding content creation and account management.",
+        "response_id": "gen-1787680092-jo3N2Q8Kscds6666RfEU",
+        "score": 1.0,
+        "usage": {
+          "call_count": 1,
+          "reported_call_count": 1,
+          "tokens": {
+            "cache_write_input": 0,
+            "cached_input": 320,
+            "input": 405,
+            "output": 43,
+            "reasoning_output": 0,
+            "total": 448
+          },
+          "usage_complete": true
+        }
+      },
+      "latency_seconds": 8.02289495797595,
+      "prediction": "Gina offered to help Jon with making content and managing his social media accounts.",
+      "question": "What offer does Gina make to Jon regarding social media?",
+      "retrieval": {
+        "memories": [],
+        "query": "What offer does Gina make to Jon regarding social media?",
+        "query_id": "19ac75f3-a3d5-4937-9ebd-cf7b7a85a022"
+      },
+      "usage": {
+        "call_count": 1,
+        "reported_call_count": 1,
+        "tokens": {
+          "cache_write_input": 0,
+          "cached_input": 27488,
+          "input": 27583,
+          "output": 162,
+          "reasoning_output": 0,
+          "total": 27745
+        },
+        "usage_complete": true
+      }
+    }
+  ],
+  "sample_id": "conv-30",
+  "session_id": "d8d3772e-a513-519f-b6e3-3a04b786288c",
+  "source_session_count": 19,
+  "speakers": [
+    "Jon",
+    "Gina"
+  ],
+  "status": "completed",
+  "turn_count": 369,
+  "user_id": "36429fa9-4107-5899-97a9-a290aa87ab2b"
+}

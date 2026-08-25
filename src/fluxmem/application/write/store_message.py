@@ -28,6 +28,17 @@ class StoreMessage:
                     "message session does not belong to the requested user"
                 )
 
+            existing = unit_of_work.messages.get(
+                message_id=message.message_id,
+                user_id=user_id,
+            )
+            if existing is not None:
+                if existing != message:
+                    raise ValueError(
+                        "message ID already exists with different content"
+                    )
+                return message.message_id
+
             unit_of_work.messages.add(message=message)
             unit_of_work.commit()
 

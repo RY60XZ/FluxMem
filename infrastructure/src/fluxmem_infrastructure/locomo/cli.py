@@ -4,6 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
@@ -17,7 +18,10 @@ from fluxmem_infrastructure.locomo.dataset import (
     select_conversations,
 )
 from fluxmem_infrastructure.locomo.judge import LLMLocomoJudge
-from fluxmem_infrastructure.locomo.prompts import answer_prompt
+from fluxmem_infrastructure.locomo.prompts import (
+    answer_prompt,
+    full_context_answer_prompt,
+)
 from fluxmem_infrastructure.locomo.runner import LocomoRunner
 from fluxmem_infrastructure.runtime import bootstrap_from_env
 
@@ -57,7 +61,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         required=True,
-        help="new or empty result directory",
+        help="new/empty result directory, or an existing run with --resume",
+    )
+    run.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume the checkpoint in --output without repeating completed work",
+    )
+    run.add_argument(
+        "--context-mode",
+        choices=("memory", "full"),
+        default="memory",
+        help=(
+            "answer from retrieved memories (memory) or the complete raw "
+            "conversation without memory learning (full)"
+        ),
     )
     run.add_argument(
         "--dotenv",
@@ -92,11 +110,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             "lifecycle": settings.lifecycle_model,
             "embedding": settings.embedding_model,
         }
+        full_context = arguments.context_mode == "full"
+        answer_context_settings = settings.answer_context_settings()
+        if full_context:
+            answer_context_settings = replace(
+                answer_context_settings,
+                maximum_history_messages=(
+                    max(len(conversation.turns) for conversation in selected) + 1
+                ),
+            )
         with bootstrap_from_env(
             dotenv_path=arguments.dotenv,
             retrieval_settings=_LOCOMO_RETRIEVAL_SETTINGS,
-            answer_with_history=False,
-            answer_instructions=answer_prompt(),
+            answer_context_settings=answer_context_settings,
+            answer_with_history=full_context,
+            answer_with_memories=not full_context,
+            enable_memory_learning=not full_context,
+            answer_instructions=(
+                full_context_answer_prompt() if full_context else answer_prompt()
+            ),
         ) as runtime:
             summary = LocomoRunner(
                 memory=runtime.memory,
@@ -110,7 +142,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 dataset_sha256=dataset_sha256(data_path),
                 mode="all" if arguments.all else "single",
                 model_settings=model_settings,
+                context_mode=arguments.context_mode,
                 git_revision=_git_revision(),
+                resume=arguments.resume,
             ).run(selected)
     except (OSError, RuntimeError, TypeError, ValueError) as error:
         parser.exit(2, f"fluxmem-locomo: {error}\n")

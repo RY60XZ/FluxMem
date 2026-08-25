@@ -35,8 +35,12 @@ from fluxmem_infrastructure.locomo.runner import LocomoRunner
 
 
 class _Memory:
-    def __init__(self) -> None:
+    def __init__(self, *, cancel_on_ingest_call: int | None = None) -> None:
         self.messages_by_user: dict[UUID, list[Message]] = {}
+        self.cancel_on_ingest_call = cancel_on_ingest_call
+        self.ingest_call_count = 0
+        self.store_call_count = 0
+        self.ingested_message_ids: list[UUID] = []
 
     def start_session(
         self,
@@ -45,12 +49,18 @@ class _Memory:
         session_id: UUID | None = None,
     ) -> Session:
         assert session_id is not None
-        self.messages_by_user[user_id] = []
+        self.messages_by_user.setdefault(user_id, [])
         return Session(session_id=session_id, user_id=user_id)
 
     def ingest_messages(self, *, user_id, messages, diagnostics=False):
         del diagnostics
-        self.messages_by_user[user_id].extend(messages)
+        self.ingest_call_count += 1
+        for message in messages:
+            if message.message_id not in self.ingested_message_ids:
+                self.messages_by_user[user_id].append(message)
+                self.ingested_message_ids.append(message.message_id)
+        if self.ingest_call_count == self.cancel_on_ingest_call:
+            raise KeyboardInterrupt
         return MessageIngestionResult(
             messages=tuple(messages),
             llm_usage=LLMUsageReport(
@@ -69,10 +79,27 @@ class _Memory:
             ),
         )
 
+    def store_messages(self, *, user_id, messages):
+        self.store_call_count += 1
+        stored: list[UUID] = []
+        for message in messages:
+            if message.message_id not in self.ingested_message_ids:
+                self.messages_by_user[user_id].append(message)
+                self.ingested_message_ids.append(message.message_id)
+            stored.append(message.message_id)
+        return tuple(stored)
+
 
 class _Answering:
-    def __init__(self, memory: _Memory) -> None:
+    def __init__(
+        self,
+        memory: _Memory,
+        *,
+        cancel_on_call: int | None = None,
+    ) -> None:
         self._memory = memory
+        self.cancel_on_call = cancel_on_call
+        self.calls: list[str] = []
 
     def answer(
         self,
@@ -84,6 +111,9 @@ class _Answering:
         retrieval_limit=None,
     ):
         del retrieval_limit
+        self.calls.append(content)
+        if len(self.calls) == self.cancel_on_call:
+            raise KeyboardInterrupt
         source = self._memory.messages_by_user[user_id][0]
         memory_id = uuid4()
         memory = Memory(
@@ -234,6 +264,140 @@ class LocomoRunnerTests(unittest.TestCase):
         self.assertEqual(summary["question_count"], 1)
         self.assertEqual(summary["failed_conversations"], [])
 
+    def test_full_context_mode_stores_transcript_without_memory_learning(
+        self,
+    ) -> None:
+        memory = _Memory()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "results"
+            summary = LocomoRunner(
+                memory=memory,
+                answering=_Answering(memory),
+                judge=_Judge(),
+                output_dir=output,
+                dataset_path=root / "locomo.json",
+                dataset_sha256="fixture",
+                mode="single",
+                context_mode="full",
+                model_settings={"answer": "test", "judge": "test"},
+            ).run((_conversation("conv-30"),))
+            manifest = json.loads(
+                (output / "manifest.json").read_text(encoding="utf-8")
+            )
+            artifact = json.loads(
+                (output / "conversations" / "conv-30.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(memory.ingest_call_count, 0)
+        self.assertEqual(memory.store_call_count, 2)
+        self.assertEqual(len(memory.ingested_message_ids), 2)
+        self.assertEqual(manifest["context_mode"], "full")
+        self.assertEqual(summary["context_mode"], "full")
+        self.assertEqual(artifact["context_mode"], "full")
+        self.assertEqual(artifact["ingestion"]["usage"]["call_count"], 0)
+        self.assertEqual(artifact["ingestion"]["memory_outcome_counts"], {})
+
+    def test_resume_skips_checkpointed_ingestion_turns(self) -> None:
+        memory = _Memory(cancel_on_ingest_call=2)
+        conversation = _conversation("conv-30")
+        run_id = UUID("00000000-0000-0000-0000-000000000030")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "results"
+            runner = LocomoRunner(
+                memory=memory,
+                answering=_Answering(memory),
+                judge=_Judge(),
+                output_dir=output,
+                dataset_path=root / "locomo.json",
+                dataset_sha256="fixture",
+                mode="single",
+                model_settings={"answer": "test", "judge": "test"},
+                run_id=run_id,
+            )
+            with self.assertRaises(KeyboardInterrupt):
+                runner.run((conversation,))
+
+            checkpoint = json.loads(
+                (output / "checkpoint.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                checkpoint["conversations"]["conv-30"][
+                    "completed_turn_count"
+                ],
+                1,
+            )
+
+            memory.cancel_on_ingest_call = None
+            summary = LocomoRunner(
+                memory=memory,
+                answering=_Answering(memory),
+                judge=_Judge(),
+                output_dir=output,
+                dataset_path=root / "locomo.json",
+                dataset_sha256="fixture",
+                mode="single",
+                model_settings={"answer": "test", "judge": "test"},
+                resume=True,
+            ).run((conversation,))
+
+            checkpoint = json.loads(
+                (output / "checkpoint.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(summary["failed_conversations"], [])
+        self.assertTrue(checkpoint["conversations"]["conv-30"]["complete"])
+        self.assertEqual(len(memory.ingested_message_ids), 2)
+        self.assertEqual(len(set(memory.ingested_message_ids)), 2)
+
+    def test_resume_skips_checkpointed_questions(self) -> None:
+        memory = _Memory()
+        conversation = _conversation_with_two_questions("conv-30")
+        answering = _Answering(memory, cancel_on_call=2)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "results"
+            runner = LocomoRunner(
+                memory=memory,
+                answering=answering,
+                judge=_Judge(),
+                output_dir=output,
+                dataset_path=root / "locomo.json",
+                dataset_sha256="fixture",
+                mode="single",
+                model_settings={"answer": "test", "judge": "test"},
+            )
+            with self.assertRaises(KeyboardInterrupt):
+                runner.run((conversation,))
+
+            answering.cancel_on_call = None
+            summary = LocomoRunner(
+                memory=memory,
+                answering=answering,
+                judge=_Judge(),
+                output_dir=output,
+                dataset_path=root / "locomo.json",
+                dataset_sha256="fixture",
+                mode="single",
+                model_settings={"answer": "test", "judge": "test"},
+                resume=True,
+            ).run((conversation,))
+            artifact = json.loads(
+                (output / "conversations" / "conv-30.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(summary["question_count"], 2)
+        self.assertEqual(len(artifact["question_results"]), 2)
+        self.assertEqual(
+            answering.calls.count("Where does Alice live?"),
+            1,
+        )
+
 
 def _conversation(sample_id: str) -> LocomoConversation:
     occurred_at = datetime(2023, 5, 8, 13, 56, tzinfo=timezone.utc)
@@ -269,6 +433,24 @@ def _conversation(sample_id: str) -> LocomoConversation:
                 question="What did Alice not say?",
                 category=5,
                 adversarial_answer="She did not discuss Montreal.",
+            ),
+        ),
+    )
+
+
+def _conversation_with_two_questions(sample_id: str) -> LocomoConversation:
+    base = _conversation(sample_id)
+    return LocomoConversation(
+        sample_id=base.sample_id,
+        speaker_a=base.speaker_a,
+        speaker_b=base.speaker_b,
+        sessions=base.sessions,
+        questions=(
+            base.questions[0],
+            LocomoQuestion(
+                question="Which city is Alice based in?",
+                answer="Toronto",
+                category=4,
             ),
         ),
     )

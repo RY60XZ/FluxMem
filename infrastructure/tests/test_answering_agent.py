@@ -117,6 +117,29 @@ class AnsweringAgentTests(unittest.TestCase):
         self.assertEqual(memory.calls, ["retrieve"])
         self.assertEqual(generator.calls[0]["history"].messages, ())
 
+    def test_answer_can_use_history_without_memory_retrieval(self) -> None:
+        user_id = uuid4()
+        session_id = uuid4()
+        memory = _Memory(user_id=user_id, session_id=session_id)
+        generator = _Generator()
+        agent = AnsweringAgent(
+            memory=memory,
+            generator=generator,
+            include_history=True,
+            include_memories=False,
+        )
+
+        result = agent.answer(
+            user_id=user_id,
+            session_id=session_id,
+            content="Who spoke?",
+        )
+
+        self.assertEqual(memory.calls, ["history"])
+        self.assertEqual(result.retrieval.context.memories, ())
+        self.assertEqual(result.context_memory_ids, ())
+        self.assertEqual(generator.calls[0]["memory_pack"].memories, ())
+
     def test_run_turn_explicitly_composes_memory_mutations(self) -> None:
         user_id = uuid4()
         session_id = uuid4()

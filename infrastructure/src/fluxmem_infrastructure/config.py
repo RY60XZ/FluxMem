@@ -13,7 +13,7 @@ from fluxmem_infrastructure.answering import (
 from fluxmem_infrastructure.providers.openrouter import OPENROUTER_BASE_URL
 
 
-DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731"
+DEFAULT_OPENROUTER_MODEL = "google/gemma-4-26b-a4b-it"
 DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 
 

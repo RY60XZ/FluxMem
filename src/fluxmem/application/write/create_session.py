@@ -32,6 +32,11 @@ class CreateSession:
         with self._unit_of_work_factory() as unit_of_work:
             unit_of_work.sessions.ensure_user(user_id=user_id)
             unit_of_work.flush()
+            if unit_of_work.sessions.is_owned_by(
+                session_id=conversation_session.session_id,
+                user_id=user_id,
+            ):
+                return conversation_session
             unit_of_work.sessions.add(session=conversation_session)
             unit_of_work.commit()
         return conversation_session

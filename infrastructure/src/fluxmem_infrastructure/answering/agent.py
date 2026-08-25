@@ -6,12 +6,14 @@ from uuid import UUID, uuid4
 
 from fluxmem import (
     FluxMem,
+    MemoryPack,
     MemoryRetrievalResult,
     Message,
     MessageIngestionResult,
     MessagePack,
     ModelTokenUsage,
 )
+from fluxmem.domain.info_pack import TurnMemoryPacks
 from fluxmem_infrastructure.answering.generator import AnswerGenerator
 
 
@@ -55,10 +57,12 @@ class AnsweringAgent:
         memory: FluxMem,
         generator: AnswerGenerator,
         include_history: bool = True,
+        include_memories: bool = True,
     ) -> None:
         self._memory = memory
         self._generator = generator
         self._include_history = include_history
+        self._include_memories = include_memories
 
     def answer(
         self,
@@ -69,12 +73,21 @@ class AnsweringAgent:
         created_at: datetime | None = None,
         retrieval_limit: int | None = None,
     ) -> AnswerResult:
-        retrieval = self._memory.retrieve(
-            user_id=user_id,
-            session_id=session_id,
-            query=content,
-            created_at=created_at,
-            limit=retrieval_limit,
+        retrieval = (
+            self._memory.retrieve(
+                user_id=user_id,
+                session_id=session_id,
+                query=content,
+                created_at=created_at,
+                limit=retrieval_limit,
+            )
+            if self._include_memories
+            else _empty_retrieval(
+                user_id=user_id,
+                session_id=session_id,
+                content=content,
+                created_at=created_at,
+            )
         )
         history = (
             self._memory.get_session_history(
@@ -124,12 +137,13 @@ class AnsweringAgent:
             content=content,
             created_at=created_at,
         )
-        self._memory.record_usage(
-            user_id=user_id,
-            session_id=session_id,
-            query_id=result.retrieval.query_id,
-            used_memory_ids=result.context_memory_ids,
-        )
+        if self._include_memories:
+            self._memory.record_usage(
+                user_id=user_id,
+                session_id=session_id,
+                query_id=result.retrieval.query_id,
+                used_memory_ids=result.context_memory_ids,
+            )
         ingestion = self._memory.ingest_messages(
             user_id=user_id,
             messages=(result.query,),
@@ -139,3 +153,30 @@ class AnsweringAgent:
             messages=(result.answer,),
         )
         return AnswerTurnResult(answer_result=result, ingestion=ingestion)
+
+
+def _empty_retrieval(
+    *,
+    user_id: UUID,
+    session_id: UUID,
+    content: str,
+    created_at: datetime | None,
+) -> MemoryRetrievalResult:
+    query = Message(
+        message_id=uuid4(),
+        session_id=session_id,
+        role="user",
+        agent_id=None,
+        content=content,
+        created_at=created_at or datetime.now().astimezone(),
+    )
+    pack = MemoryPack(
+        query_id=uuid4(),
+        user_id=user_id,
+        session_id=session_id,
+        memories=(),
+    )
+    return MemoryRetrievalResult(
+        query=query,
+        retrieval=TurnMemoryPacks(seeds=pack, expanded=pack),
+    )

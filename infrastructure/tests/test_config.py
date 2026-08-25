@@ -9,7 +9,7 @@ from fluxmem_infrastructure.config import (
 
 
 class InfrastructureSettingsTests(unittest.TestCase):
-    def test_deepseek_v4_flash_is_default_for_answering_and_llm_tasks(self) -> None:
+    def test_paid_gemma_4_is_default_for_answering_and_llm_tasks(self) -> None:
         settings = InfrastructureSettings.from_environment(
             {
                 "FLUXMEM_DATABASE_URL": "postgresql+psycopg://localhost/fluxmem",
@@ -19,7 +19,7 @@ class InfrastructureSettingsTests(unittest.TestCase):
 
         self.assertEqual(
             DEFAULT_OPENROUTER_MODEL,
-            "deepseek/deepseek-v4-flash-0731",
+            "google/gemma-4-26b-a4b-it",
         )
         self.assertEqual(settings.answer_model, DEFAULT_OPENROUTER_MODEL)
         self.assertEqual(settings.judge_model, settings.answer_model)

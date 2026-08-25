@@ -15,7 +15,11 @@ from fluxmem import (
     StructuredModelProvider,
     bootstrap,
 )
-from fluxmem_infrastructure.answering import AnswerGenerator, AnsweringAgent
+from fluxmem_infrastructure.answering import (
+    AnswerContextSettings,
+    AnswerGenerator,
+    AnsweringAgent,
+)
 from fluxmem_infrastructure.config import InfrastructureSettings, load_settings
 from fluxmem_infrastructure.providers import (
     OpenRouterChatCompletionsProvider,
@@ -46,7 +50,10 @@ def bootstrap_from_env(
     environ: Mapping[str, str] | None = None,
     memory_context_settings: LLMContextSettings | None = None,
     retrieval_settings: HybridRetrievalSettings | None = None,
+    answer_context_settings: AnswerContextSettings | None = None,
     answer_with_history: bool = True,
+    answer_with_memories: bool = True,
+    enable_memory_learning: bool = True,
     answer_instructions: str | None = None,
     **engine_options: object,
 ) -> AnsweringRuntime:
@@ -72,15 +79,23 @@ def bootstrap_from_env(
     )
     memory = bootstrap(
         database_url=settings.database_url,
-        memory_extractor=LLMMemoryExtractor(
-            provider=provider,
-            settings=settings.task_settings(settings.extraction_model),
-            context_settings=context_settings,
+        memory_extractor=(
+            LLMMemoryExtractor(
+                provider=provider,
+                settings=settings.task_settings(settings.extraction_model),
+                context_settings=context_settings,
+            )
+            if enable_memory_learning
+            else None
         ),
-        memory_reconciler=LLMMemoryReconciler(
-            provider=provider,
-            settings=settings.task_settings(settings.reconciliation_model),
-            context_settings=context_settings,
+        memory_reconciler=(
+            LLMMemoryReconciler(
+                provider=provider,
+                settings=settings.task_settings(settings.reconciliation_model),
+                context_settings=context_settings,
+            )
+            if enable_memory_learning
+            else None
         ),
         lifecycle_evaluator=(
             LLMLifecycleEvaluator(
@@ -90,7 +105,7 @@ def bootstrap_from_env(
                     repair_invalid_output=False,
                 ),
             )
-            if settings.enable_llm_lifecycle
+            if settings.enable_llm_lifecycle and enable_memory_learning
             else None
         ),
         embedding_provider=embedding_provider,
@@ -101,7 +116,9 @@ def bootstrap_from_env(
     generator = AnswerGenerator(
         provider=provider,
         settings=settings.answer_model_settings(),
-        context_settings=settings.answer_context_settings(),
+        context_settings=(
+            answer_context_settings or settings.answer_context_settings()
+        ),
         instructions=answer_instructions,
     )
     return AnsweringRuntime(
@@ -110,6 +127,7 @@ def bootstrap_from_env(
             memory=memory,
             generator=generator,
             include_history=answer_with_history,
+            include_memories=answer_with_memories,
         ),
         model_provider=provider,
         settings=settings,

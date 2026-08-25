@@ -63,5 +63,6 @@ fluxmem-locomo run --all --output benchmark-runs/full
 fluxmem-locomo run --conversation conv-26 --output benchmark-runs/conv-26
 ```
 
-The infrastructure runtime defaults its answering, extraction, reconciliation,
-and lifecycle tasks to `deepseek/deepseek-v4-flash-0731`.
+The infrastructure runtime defaults its answering, judging, extraction,
+reconciliation, and lifecycle tasks to the paid
+`google/gemma-4-26b-a4b-it` OpenRouter route.
