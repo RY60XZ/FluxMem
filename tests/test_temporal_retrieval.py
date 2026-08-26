@@ -6,9 +6,6 @@ from uuid import uuid4
 
 from sqlalchemy.dialects import postgresql
 
-from fluxmem.adapters.postgres.repositories.conflicts import (
-    SqlAlchemyConflictRepository,
-)
 from fluxmem.adapters.postgres.repositories.memories import (
     SqlAlchemyMemoryRepository,
 )
@@ -52,21 +49,6 @@ class TemporalRetrievalTests(unittest.TestCase):
         sql = _compiled_sql(session.statement)
         self.assertNotIn("memories.valid_from <=", sql)
         self.assertNotIn("memories.valid_to >=", sql)
-
-    def test_conflict_expansion_does_not_filter_by_validity_interval(self) -> None:
-        session = _CapturingSession()
-        repository = SqlAlchemyConflictRepository(session)
-        repository.expand(
-            seed_memory_ids=(uuid4(),),
-            user_id=uuid4(),
-            session_id=uuid4(),
-            as_of=datetime(2026, 8, 24, tzinfo=timezone.utc),
-        )
-
-        sql = _compiled_sql(session.statement)
-        self.assertNotIn("memories.valid_from <=", sql)
-        self.assertNotIn("memories.valid_to >=", sql)
-
 
 def _compiled_sql(statement) -> str:
     if statement is None:

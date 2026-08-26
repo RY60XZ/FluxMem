@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
 
-from fluxmem.domain.conflict import MemoryConflict
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
@@ -28,35 +27,6 @@ class MemoryPack:
     user_id: UUID
     session_id: UUID
     memories: tuple[RetrievedMemory, ...]
-    conflicts: tuple[MemoryConflict, ...] = ()
-    conflict_expansion_truncated: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class TurnMemoryPacks:
-    """Seed and conflict-expanded views of one persisted retrieval event."""
-
-    seeds: MemoryPack
-    expanded: MemoryPack
-
-    def __post_init__(self) -> None:
-        if self.seeds.query_id != self.expanded.query_id:
-            raise ValueError("turn memory views must share one query ID")
-        if self.seeds.user_id != self.expanded.user_id:
-            raise ValueError("turn memory views must share one user")
-        if self.seeds.session_id != self.expanded.session_id:
-            raise ValueError("turn memory views must share one session")
-        seed_ids = tuple(
-            retrieved.memory.memory_id for retrieved in self.seeds.memories
-        )
-        expanded_prefix = tuple(
-            retrieved.memory.memory_id
-            for retrieved in self.expanded.memories[: len(seed_ids)]
-        )
-        if expanded_prefix != seed_ids:
-            raise ValueError("expanded turn context must begin with its seeds")
-        if self.seeds.conflicts or self.seeds.conflict_expansion_truncated:
-            raise ValueError("seed context cannot contain conflict expansion")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,19 +34,15 @@ class MemoryRetrievalResult:
     """An ephemeral query and the memory context returned for external use."""
 
     query: Message
-    retrieval: TurnMemoryPacks
+    context: MemoryPack
 
     def __post_init__(self) -> None:
-        if self.query.session_id != self.retrieval.expanded.session_id:
+        if self.query.session_id != self.context.session_id:
             raise ValueError("query and retrieval must share one session")
 
     @property
     def query_id(self) -> UUID:
-        return self.retrieval.expanded.query_id
-
-    @property
-    def context(self) -> MemoryPack:
-        return self.retrieval.expanded
+        return self.context.query_id
 
 
 @dataclass(frozen=True, slots=True)

@@ -29,7 +29,6 @@ from fluxmem.application.ports.llm import (
     ModelUsageRecorder,
     StructuredModelProvider,
 )
-from fluxmem.domain.conflict import ConflictProposal
 from fluxmem.domain.info_pack import MemoryPack, MessagePack
 from fluxmem.domain.lifecycle import DecisionSource, LifecycleDecision
 from fluxmem.domain.llm import (
@@ -37,8 +36,6 @@ from fluxmem.domain.llm import (
     ModelCallDiagnostics,
     ModelCallUsage,
     ProposedMemory,
-    ReconciliationAction,
-    ReconciliationDecision,
 )
 from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
@@ -503,9 +500,6 @@ class LLMMemoryExtractor(_StructuredTask):
                 raise ValueError("too many memory candidates")
 
             proposals: list[ProposedMemory] = []
-            seen_candidates: set[
-                tuple[str, UUID | None, datetime | None, datetime | None]
-            ] = set()
             for raw_memory in raw_memories:
                 if not isinstance(raw_memory, dict):
                     raise TypeError("each memory candidate must be an object")
@@ -544,15 +538,6 @@ class LLMMemoryExtractor(_StructuredTask):
                 valid_to = _optional_datetime(
                     raw_memory["valid_to"], field="valid_to"
                 )
-                dedupe_key = (
-                    normalized.casefold(),
-                    session_applicability,
-                    valid_from,
-                    valid_to,
-                )
-                if dedupe_key in seen_candidates:
-                    continue
-                seen_candidates.add(dedupe_key)
                 proposals.append(
                     ProposedMemory(
                         content=normalized,
@@ -580,234 +565,6 @@ class LLMMemoryExtractor(_StructuredTask):
             diagnostics_recorder=diagnostics_recorder,
             supplied_memory_ids=memories.included_memory_ids,
             supplied_message_ids=context.message_references.ids,
-        )
-
-
-_RECONCILIATION_SCHEMA: Mapping[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["decisions"],
-    "properties": {
-        "decisions": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": [
-                    "candidate_ref",
-                    "action",
-                    "equivalent_memory_ref",
-                    "conflicts",
-                ],
-                "properties": {
-                    "candidate_ref": {"type": "integer"},
-                    "action": {"type": "string", "enum": ["ADD", "NONE"]},
-                    "equivalent_memory_ref": {
-                        "type": ["integer", "null"]
-                    },
-                    "conflicts": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": [
-                                "neighbor_memory_ref",
-                                "confidence",
-                            ],
-                            "properties": {
-                                "neighbor_memory_ref": {"type": "integer"},
-                                "confidence": {"type": ["number", "null"]},
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    },
-}
-
-
-class LLMMemoryReconciler(_StructuredTask):
-    def __init__(
-        self,
-        *,
-        provider: StructuredModelProvider,
-        settings: LLMTaskSettings,
-        context_settings: LLMContextSettings | None = None,
-    ) -> None:
-        super().__init__(provider=provider, settings=settings)
-        self._context_settings = context_settings or LLMContextSettings()
-
-    def reconcile(
-        self,
-        *,
-        candidates: tuple[ProposedMemory, ...],
-        memory_pack: MemoryPack,
-        evidence_messages: tuple[Message, ...],
-        session_history: MessagePack,
-        usage_recorder: ModelUsageRecorder | None = None,
-        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
-    ) -> tuple[ReconciliationDecision, ...]:
-        if not candidates:
-            return ()
-        if memory_pack.session_id != session_history.session_id:
-            raise ValueError(
-                "reconciliation memory pack and history must share one session"
-            )
-        if any(
-            message.session_id != session_history.session_id
-            for message in evidence_messages
-        ):
-            raise ValueError(
-                "reconciliation evidence must share the history session"
-            )
-        conversation = render_messages(
-            message_pack=session_history,
-            settings=self._context_settings,
-            extra_messages=evidence_messages,
-            maximum_messages=(
-                self._context_settings.maximum_write_history_messages
-            ),
-            maximum_characters=(
-                self._context_settings.maximum_write_history_characters
-            ),
-            maximum_content_characters=(
-                self._context_settings.maximum_write_message_content_characters
-            ),
-        )
-        rendered = render_memory_pack(
-            memory_pack=memory_pack,
-            settings=self._context_settings,
-            maximum_characters=(
-                self._context_settings.maximum_write_memory_characters
-            ),
-        )
-        candidate_text = json.dumps(
-            [
-                {
-                    "candidate_ref": reference,
-                    "content": candidate.content,
-                    "valid_from": (
-                        format_prompt_timestamp(candidate.valid_from)
-                        if candidate.valid_from is not None
-                        else None
-                    ),
-                    "valid_to": (
-                        format_prompt_timestamp(candidate.valid_to)
-                        if candidate.valid_to is not None
-                        else None
-                    ),
-                }
-                for reference, candidate in enumerate(candidates, start=1)
-            ],
-            separators=(",", ":"),
-        )
-
-        def validate(
-            value: Mapping[str, Any], attempt: int
-        ) -> tuple[ReconciliationDecision, ...]:
-            del attempt
-            _require_exact_keys(
-                value,
-                expected={"decisions"},
-                object_name="reconciliation result",
-            )
-            raw_decisions = value["decisions"]
-            if not isinstance(raw_decisions, list):
-                raise TypeError("decisions must be an array")
-            decisions: dict[int, ReconciliationDecision] = {}
-            for raw_decision in raw_decisions:
-                if not isinstance(raw_decision, dict):
-                    raise TypeError("each reconciliation decision must be an object")
-                _require_exact_keys(
-                    raw_decision,
-                    expected={
-                        "candidate_ref",
-                        "action",
-                        "equivalent_memory_ref",
-                        "conflicts",
-                    },
-                    object_name="reconciliation decision",
-                )
-                candidate_reference = raw_decision["candidate_ref"]
-                if (
-                    isinstance(candidate_reference, bool)
-                    or not isinstance(candidate_reference, int)
-                    or not 1 <= candidate_reference <= len(candidates)
-                ):
-                    raise ValueError("candidate_ref is absent from proposed memories")
-                if candidate_reference in decisions:
-                    raise ValueError("candidate_ref decisions must be unique")
-
-                action = ReconciliationAction(raw_decision["action"])
-                raw_equivalent = raw_decision["equivalent_memory_ref"]
-                equivalent = (
-                    rendered.memory_references.id_for(
-                        raw_equivalent,
-                        field="equivalent_memory_ref",
-                    )
-                    if raw_equivalent is not None
-                    else None
-                )
-                raw_conflicts = raw_decision["conflicts"]
-                if not isinstance(raw_conflicts, list):
-                    raise TypeError("conflicts must be an array")
-                conflicts: list[ConflictProposal] = []
-                seen: set[UUID] = set()
-                for raw_conflict in raw_conflicts:
-                    if not isinstance(raw_conflict, dict):
-                        raise TypeError("each conflict must be an object")
-                    _require_exact_keys(
-                        raw_conflict,
-                        expected={"neighbor_memory_ref", "confidence"},
-                        object_name="conflict proposal",
-                    )
-                    neighbor_id = rendered.memory_references.id_for(
-                        raw_conflict["neighbor_memory_ref"],
-                        field="neighbor_memory_ref",
-                    )
-                    if neighbor_id in seen:
-                        raise ValueError("conflict memory IDs must be unique")
-                    seen.add(neighbor_id)
-                    confidence = raw_conflict["confidence"]
-                    conflicts.append(
-                        ConflictProposal(
-                            neighbor_memory_id=neighbor_id,
-                            confidence=(
-                                _number(confidence, field="conflict confidence")
-                                if confidence is not None
-                                else None
-                            ),
-                        )
-                    )
-                decisions[candidate_reference] = ReconciliationDecision(
-                    action=action,
-                    equivalent_memory_id=equivalent,
-                    conflict_proposals=tuple(conflicts),
-                )
-            expected_references = set(range(1, len(candidates) + 1))
-            if set(decisions) != expected_references:
-                raise ValueError("decisions must cover every proposed memory")
-            return tuple(
-                decisions[reference]
-                for reference in range(1, len(candidates) + 1)
-            )
-
-        return self._generate(
-            task=LLMTaskKind.RECONCILIATION,
-            instructions=load_prompt("memory_reconciliation"),
-            input_text=(
-                f"RECENT CONVERSATION:\n{conversation.text}\n\n"
-                f"PROPOSED MEMORIES:\n{candidate_text}\n\n"
-                f"RELATED EXISTING MEMORIES:\n{rendered.text}"
-            ),
-            schema_name="fluxmem_memory_reconciliation",
-            schema=_RECONCILIATION_SCHEMA,
-            validator=validate,
-            usage_recorder=usage_recorder,
-            diagnostics_recorder=diagnostics_recorder,
-            supplied_memory_ids=rendered.included_memory_ids,
-            supplied_message_ids=conversation.message_references.ids,
         )
 
 

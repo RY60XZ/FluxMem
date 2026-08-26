@@ -4,7 +4,6 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from fluxmem.application.ports.repositories import (
-    ConflictRepository,
     LifecycleRepository,
     MemoryIndexRepository,
     MemoryRepository,
@@ -21,7 +20,6 @@ class UnitOfWork(Protocol):
     memories: MemoryRepository
     memory_indexes: MemoryIndexRepository
     retrievals: RetrievalRepository
-    conflicts: ConflictRepository
 
     def __enter__(self) -> Self: ...
 

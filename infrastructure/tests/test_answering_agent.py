@@ -11,7 +11,6 @@ from fluxmem import (
     MessageIngestionResult,
     MessagePack,
 )
-from fluxmem.domain.info_pack import TurnMemoryPacks
 from fluxmem_infrastructure.answering import AnsweringAgent
 from fluxmem_infrastructure.answering.generator import GeneratedAnswer
 
@@ -33,7 +32,7 @@ class _Memory:
                 content="Who spoke?",
                 created_at=datetime(2023, 5, 9, tzinfo=timezone.utc),
             ),
-            retrieval=TurnMemoryPacks(seeds=pack, expanded=pack),
+            context=pack,
         )
         self.history = MessagePack(
             user_id=user_id,

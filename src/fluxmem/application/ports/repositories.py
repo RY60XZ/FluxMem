@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from fluxmem.domain.conflict import ConflictNeighbor, MemoryConflict
 from fluxmem.domain.info_pack import MemoryUsage, RetrievedMemory
 from fluxmem.domain.lifecycle import MemoryLifecycle
 from fluxmem.domain.memory import Memory
@@ -62,19 +61,6 @@ class MemoryIndexRepository(Protocol):
         embedding: Embedding,
         indexed_at: datetime,
     ) -> bool: ...
-
-
-class ConflictRepository(Protocol):
-    def add(self, *, conflict: MemoryConflict) -> None: ...
-
-    def expand(
-        self,
-        *,
-        seed_memory_ids: tuple[UUID, ...],
-        user_id: UUID,
-        session_id: UUID,
-        as_of: datetime,
-    ) -> tuple[ConflictNeighbor, ...]: ...
 
 
 class RetrievalRepository(Protocol):

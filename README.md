@@ -1,8 +1,8 @@
 # FluxMem
 
 FluxMem is an independent conversational memory layer. It stores messages,
-extracts and reconciles memories, retrieves relevant context, and records memory
-usage. It does not generate answers or cache answering-model responses.
+extracts memories, retrieves relevant context, and records memory usage. It does
+not generate answers or cache answering-model responses.
 
 ## Install
 
@@ -14,9 +14,9 @@ make db-setup
 
 ## Public API
 
-Applications provide memory extraction, reconciliation, lifecycle, and embedding
-implementations through provider-neutral ports. The `FluxMem` facade is the
-supported integration boundary:
+Applications provide memory extraction, lifecycle, and embedding implementations
+through provider-neutral ports. The `FluxMem` facade is the supported integration
+boundary:
 
 ```python
 from fluxmem import bootstrap
@@ -25,7 +25,6 @@ from fluxmem import bootstrap
 memory = bootstrap(
     database_url="postgresql+psycopg://localhost/fluxmem",
     memory_extractor=extractor,
-    memory_reconciler=reconciler,
     embedding_provider=embedder,
 )
 session = memory.start_session(user_id=user_id)
@@ -64,5 +63,5 @@ fluxmem-locomo run --conversation conv-26 --output benchmark-runs/conv-26
 ```
 
 The infrastructure runtime defaults its answering, judging, extraction,
-reconciliation, and lifecycle tasks to the paid
+and lifecycle tasks to the paid
 `google/gemma-4-26b-a4b-it` OpenRouter route.

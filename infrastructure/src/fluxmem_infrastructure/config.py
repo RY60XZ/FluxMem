@@ -26,7 +26,6 @@ class InfrastructureSettings:
     answer_model: str = DEFAULT_OPENROUTER_MODEL
     judge_model: str = DEFAULT_OPENROUTER_MODEL
     extraction_model: str = DEFAULT_OPENROUTER_MODEL
-    reconciliation_model: str = DEFAULT_OPENROUTER_MODEL
     lifecycle_model: str = DEFAULT_OPENROUTER_MODEL
     embedding_model: str = DEFAULT_OPENROUTER_EMBEDDING_MODEL
     openrouter_base_url: str = OPENROUTER_BASE_URL
@@ -42,7 +41,6 @@ class InfrastructureSettings:
     openrouter_prompt_caching: bool = True
     enable_memory_extraction: bool = True
     enable_memory_writes: bool = True
-    enable_conflict_detection: bool = True
     enable_llm_lifecycle: bool = True
 
     @classmethod
@@ -64,9 +62,6 @@ class InfrastructureSettings:
             ),
             extraction_model=(
                 _optional(values, "FLUXMEM_EXTRACTION_MODEL") or shared_model
-            ),
-            reconciliation_model=(
-                _optional(values, "FLUXMEM_RECONCILIATION_MODEL") or shared_model
             ),
             lifecycle_model=(
                 _optional(values, "FLUXMEM_LIFECYCLE_MODEL") or shared_model
@@ -112,9 +107,6 @@ class InfrastructureSettings:
             enable_memory_writes=_boolean(
                 values, "FLUXMEM_ENABLE_MEMORY_WRITES", default=True
             ),
-            enable_conflict_detection=_boolean(
-                values, "FLUXMEM_ENABLE_CONFLICT_DETECTION", default=True
-            ),
             enable_llm_lifecycle=_boolean(
                 values, "FLUXMEM_ENABLE_LLM_LIFECYCLE", default=True
             ),
@@ -138,7 +130,6 @@ class InfrastructureSettings:
             maximum_history_messages=self.memory_history_messages,
             enable_memory_extraction=self.enable_memory_extraction,
             enable_memory_writes=self.enable_memory_writes,
-            enable_conflict_detection=self.enable_conflict_detection,
         )
 
     def memory_context_settings(self) -> LLMContextSettings:

@@ -7,7 +7,7 @@ from threading import Lock
 from typing import Any, Mapping
 from uuid import UUID
 
-from fluxmem.domain.info_pack import TurnMemoryPacks
+from fluxmem.domain.info_pack import MemoryPack
 from fluxmem.domain.llm import (
     MemoryDiagnostics,
     MemoryWriteOutcome,
@@ -20,13 +20,13 @@ class MemoryDiagnosticsCollector:
 
     def __init__(self) -> None:
         self._lock = Lock()
-        self._retrieval: TurnMemoryPacks | None = None
+        self._retrieval: MemoryPack | None = None
         self._model_calls: list[ModelCallDiagnostics] = []
         self._memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
         self._errors: tuple[str, ...] = ()
         self._complete = False
 
-    def record_retrieval(self, retrieval: TurnMemoryPacks) -> None:
+    def record_retrieval(self, retrieval: MemoryPack) -> None:
         with self._lock:
             self._retrieval = retrieval
 

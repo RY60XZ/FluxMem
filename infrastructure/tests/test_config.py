@@ -24,7 +24,6 @@ class InfrastructureSettingsTests(unittest.TestCase):
         self.assertEqual(settings.answer_model, DEFAULT_OPENROUTER_MODEL)
         self.assertEqual(settings.judge_model, settings.answer_model)
         self.assertEqual(settings.extraction_model, DEFAULT_OPENROUTER_MODEL)
-        self.assertEqual(settings.reconciliation_model, DEFAULT_OPENROUTER_MODEL)
         self.assertEqual(settings.lifecycle_model, DEFAULT_OPENROUTER_MODEL)
 
     def test_judge_model_defaults_to_answer_model_and_can_be_overridden(
@@ -47,7 +46,6 @@ class InfrastructureSettingsTests(unittest.TestCase):
             separate.judge_model_settings().model,
             "judge-model",
         )
-
 
 if __name__ == "__main__":
     unittest.main()

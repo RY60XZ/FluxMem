@@ -12,7 +12,6 @@ from fluxmem.application.ports.lifecycle import (
 from fluxmem.application.ports.llm import (
     InvalidModelOutputError,
     MemoryExtractor,
-    MemoryReconciler,
     ModelDiagnosticsRecorder,
     ModelUsageRecorder,
     ModelProviderError,
@@ -29,7 +28,6 @@ __all__ = (
     "LifecycleEvaluationInput",
     "LifecycleEvaluator",
     "MemoryExtractor",
-    "MemoryReconciler",
     "ModelDiagnosticsRecorder",
     "ModelUsageRecorder",
     "ModelProviderError",

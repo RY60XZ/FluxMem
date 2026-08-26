@@ -11,7 +11,6 @@ from fluxmem import (
     LLMContextSettings,
     LLMLifecycleEvaluator,
     LLMMemoryExtractor,
-    LLMMemoryReconciler,
     StructuredModelProvider,
     bootstrap,
 )
@@ -83,15 +82,6 @@ def bootstrap_from_env(
             LLMMemoryExtractor(
                 provider=provider,
                 settings=settings.task_settings(settings.extraction_model),
-                context_settings=context_settings,
-            )
-            if enable_memory_learning
-            else None
-        ),
-        memory_reconciler=(
-            LLMMemoryReconciler(
-                provider=provider,
-                settings=settings.task_settings(settings.reconciliation_model),
                 context_settings=context_settings,
             )
             if enable_memory_learning

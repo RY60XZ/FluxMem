@@ -17,7 +17,6 @@ from fluxmem import (
     RetrievedMemory,
     Session,
 )
-from fluxmem.domain.info_pack import TurnMemoryPacks
 from fluxmem.domain.llm import LLMTaskKind, ModelCallUsage
 from fluxmem.domain.memory import Memory
 from fluxmem_infrastructure.answering import AnswerResult
@@ -154,7 +153,7 @@ class _Answering:
         )
         retrieval = MemoryRetrievalResult(
             query=query,
-            retrieval=TurnMemoryPacks(seeds=pack, expanded=pack),
+            context=pack,
         )
         return AnswerResult(
             answer=answer,

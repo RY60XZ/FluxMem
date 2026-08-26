@@ -106,7 +106,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             "answer": settings.answer_model,
             "judge": settings.judge_model,
             "extraction": settings.extraction_model,
-            "reconciliation": settings.reconciliation_model,
             "lifecycle": settings.lifecycle_model,
             "embedding": settings.embedding_model,
         }

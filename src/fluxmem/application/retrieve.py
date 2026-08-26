@@ -54,7 +54,7 @@ class RetrieveMemories:
         )
         return MemoryRetrievalResult(
             query=query,
-            retrieval=self._retriever.execute(
+            context=self._retriever.execute(
                 message=query,
                 session_history=history,
                 limit=result_limit,

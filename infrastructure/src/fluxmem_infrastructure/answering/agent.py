@@ -13,7 +13,6 @@ from fluxmem import (
     MessagePack,
     ModelTokenUsage,
 )
-from fluxmem.domain.info_pack import TurnMemoryPacks
 from fluxmem_infrastructure.answering.generator import AnswerGenerator
 
 
@@ -178,5 +177,5 @@ def _empty_retrieval(
     )
     return MemoryRetrievalResult(
         query=query,
-        retrieval=TurnMemoryPacks(seeds=pack, expanded=pack),
+        context=pack,
     )

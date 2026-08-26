@@ -11,7 +11,6 @@ from fluxmem.application.llm.context import (
 from fluxmem.application.llm.tasks import (
     LLMLifecycleEvaluator,
     LLMMemoryExtractor,
-    LLMMemoryReconciler,
     LLMTaskSettings,
 )
 from fluxmem.application.llm.usage import ModelUsageCollector
@@ -22,7 +21,6 @@ __all__ = (
     "LLMContextSettings",
     "LLMLifecycleEvaluator",
     "LLMMemoryExtractor",
-    "LLMMemoryReconciler",
     "LLMTaskSettings",
     "ModelUsageCollector",
     "RenderedMemoryContext",

@@ -8,7 +8,6 @@ _PROMPT_NAMES = frozenset(
     {
         "lifecycle_evaluation",
         "memory_extraction",
-        "memory_reconciliation",
         "repair",
     }
 )

@@ -5,7 +5,6 @@ from fluxmem.application.llm import (
     LLMContextSettings,
     LLMLifecycleEvaluator,
     LLMMemoryExtractor,
-    LLMMemoryReconciler,
     LLMTaskSettings,
 )
 from fluxmem.application.ports.embeddings import (
@@ -19,7 +18,6 @@ from fluxmem.application.ports.lifecycle import (
 from fluxmem.application.ports.llm import (
     InvalidModelOutputError,
     MemoryExtractor,
-    MemoryReconciler,
     ModelProviderError,
     ModelTimeoutError,
     StructuredModelProvider,
@@ -58,7 +56,6 @@ __all__ = (
     "LLMContextSettings",
     "LLMLifecycleEvaluator",
     "LLMMemoryExtractor",
-    "LLMMemoryReconciler",
     "LLMTaskSettings",
     "LLMUsageReport",
     "InvalidModelOutputError",
@@ -69,7 +66,6 @@ __all__ = (
     "MemoryExtractor",
     "MemoryLayerSettings",
     "MemoryPack",
-    "MemoryReconciler",
     "MemoryRetrievalResult",
     "MemoryWriteOutcome",
     "MemoryWriteStatus",

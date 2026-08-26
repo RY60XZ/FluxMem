@@ -1,6 +1,3 @@
-from fluxmem.adapters.postgres.repositories.conflicts import (
-    SqlAlchemyConflictRepository,
-)
 from fluxmem.adapters.postgres.repositories.lifecycles import (
     SqlAlchemyLifecycleRepository,
 )
@@ -22,7 +19,6 @@ from fluxmem.adapters.postgres.repositories.retrievals import (
 )
 
 __all__ = (
-    "SqlAlchemyConflictRepository",
     "SqlAlchemyLifecycleRepository",
     "SqlAlchemyMemoryRepository",
     "SqlAlchemyMemoryIndexRepository",

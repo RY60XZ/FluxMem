@@ -6,15 +6,13 @@ from enum import StrEnum
 from typing import Any, Mapping
 from uuid import UUID
 
-from fluxmem.domain.conflict import ConflictProposal
-from fluxmem.domain.info_pack import TurnMemoryPacks
+from fluxmem.domain.info_pack import MemoryPack
 from fluxmem.domain.memory import Memory, validate_memory_fields
 from fluxmem.domain.message import Message
 
 
 class LLMTaskKind(StrEnum):
     EXTRACTION = "extraction"
-    RECONCILIATION = "reconciliation"
     LIFECYCLE = "lifecycle"
 
 
@@ -142,33 +140,8 @@ class ProposedMemory:
         )
 
 
-class ReconciliationAction(StrEnum):
-    ADD = "ADD"
-    NONE = "NONE"
-
-
-@dataclass(frozen=True, slots=True)
-class ReconciliationDecision:
-    """ADD or reuse an equivalent memory from persisted turn context."""
-
-    action: ReconciliationAction
-    equivalent_memory_id: UUID | None = None
-    conflict_proposals: tuple[ConflictProposal, ...] = ()
-
-    def __post_init__(self) -> None:
-        if self.action is ReconciliationAction.ADD:
-            if self.equivalent_memory_id is not None:
-                raise ValueError("ADD cannot identify an equivalent memory")
-            return
-        if self.equivalent_memory_id is None:
-            raise ValueError("NONE must identify an equivalent memory")
-        if self.conflict_proposals:
-            raise ValueError("NONE cannot create conflict proposals")
-
-
 class MemoryWriteStatus(StrEnum):
     STORED = "stored"
-    EQUIVALENT = "equivalent"
     DRY_RUN = "dry_run"
     FAILED = "failed"
 
@@ -179,17 +152,11 @@ class MemoryWriteOutcome:
     status: MemoryWriteStatus
     write_context_query_id: UUID | None = None
     memory_id: UUID | None = None
-    equivalent_memory_id: UUID | None = None
     error: str | None = None
 
     def __post_init__(self) -> None:
         if self.status is MemoryWriteStatus.STORED and self.memory_id is None:
             raise ValueError("stored outcome requires a memory ID")
-        if (
-            self.status is MemoryWriteStatus.EQUIVALENT
-            and self.equivalent_memory_id is None
-        ):
-            raise ValueError("equivalent outcome requires an existing memory ID")
         if self.status is MemoryWriteStatus.FAILED and not self.error:
             raise ValueError("failed outcome requires an error")
 
@@ -218,7 +185,7 @@ class ModelCallDiagnostics:
 class MemoryDiagnostics:
     """Immutable snapshot of one opt-in memory-learning trace."""
 
-    retrieval: TurnMemoryPacks | None = None
+    retrieval: MemoryPack | None = None
     model_calls: tuple[ModelCallDiagnostics, ...] = ()
     memory_outcomes: tuple[MemoryWriteOutcome, ...] = ()
     errors: tuple[str, ...] = ()

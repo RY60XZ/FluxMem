@@ -11,6 +11,11 @@ class PublicBoundaryTests(unittest.TestCase):
         self.assertTrue(hasattr(fluxmem.FluxMem, "store_messages"))
         for name in (
             "AnswerGenerator",
+            "ConflictDetection",
+            "LLMMemoryConflictDetector",
+            "LLMMemoryReconciler",
+            "MemoryConflictDetector",
+            "MemoryReconciler",
             "bootstrap_from_env",
             "query",
             "run_turn",

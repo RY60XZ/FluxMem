@@ -12,7 +12,7 @@ from fluxmem.application.lifecycle import LifecycleAssigner
 from fluxmem.application.memory_learning import LearnFromMessages, MemoryLearning
 from fluxmem.application.ports.embeddings import EmbeddingProvider
 from fluxmem.application.ports.lifecycle import LifecycleEvaluator
-from fluxmem.application.ports.llm import MemoryExtractor, MemoryReconciler
+from fluxmem.application.ports.llm import MemoryExtractor
 from fluxmem.application.read.retrieval import (
     HybridRetrievalSettings,
     HybridMemoryRetriever,
@@ -35,7 +35,6 @@ class MemoryLayerSettings:
     retrieval_limit: int = 50
     enable_memory_extraction: bool = True
     enable_memory_writes: bool = True
-    enable_conflict_detection: bool = True
 
     def __post_init__(self) -> None:
         if (
@@ -50,7 +49,6 @@ def bootstrap(
     *,
     database_url: str,
     memory_extractor: MemoryExtractor | None = None,
-    memory_reconciler: MemoryReconciler | None = None,
     lifecycle_evaluator: LifecycleEvaluator | None = None,
     embedding_provider: EmbeddingProvider | None = None,
     retrieval_settings: HybridRetrievalSettings | None = None,
@@ -59,10 +57,6 @@ def bootstrap(
 ) -> FluxMem:
     """Build the provider-neutral FluxMem memory layer."""
 
-    if (memory_extractor is None) != (memory_reconciler is None):
-        raise ValueError(
-            "memory_extractor and memory_reconciler must be configured together"
-        )
     configured = settings or MemoryLayerSettings()
     engine = create_database_engine(database_url, **engine_options)
     session_factory = create_session_factory(engine)
@@ -85,7 +79,7 @@ def bootstrap(
     )
 
     learn_from_messages = None
-    if memory_extractor is not None and memory_reconciler is not None:
+    if memory_extractor is not None:
         learn_from_messages = LearnFromMessages(
             get_session_history=get_session_history,
             retriever=retriever,
@@ -93,15 +87,11 @@ def bootstrap(
             memory_learning=MemoryLearning(
                 store_memory=store_memory,
                 memory_extractor=memory_extractor,
-                memory_reconciler=memory_reconciler,
                 lifecycle_assigner=LifecycleAssigner(
                     evaluator=lifecycle_evaluator,
                 ),
                 enable_memory_extraction=configured.enable_memory_extraction,
                 enable_memory_writes=configured.enable_memory_writes,
-                enable_conflict_detection=(
-                    configured.enable_conflict_detection
-                ),
             ),
             maximum_batch_messages=(
                 configured.maximum_ingestion_batch_messages

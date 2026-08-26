@@ -8,11 +8,7 @@ from fluxmem.application.lifecycle import LifecycleAssigner
 from fluxmem.application.llm.usage import ModelUsageCollector
 from fluxmem.application.memory_learning import MemoryLearning
 from fluxmem.domain.info_pack import MemoryPack, MessagePack
-from fluxmem.domain.llm import (
-    ProposedMemory,
-    ReconciliationAction,
-    ReconciliationDecision,
-)
+from fluxmem.domain.llm import ProposedMemory
 from fluxmem.domain.message import Message
 
 
@@ -25,14 +21,6 @@ class _Extractor:
                 source_message_id=source.message_id,
                 session_applicability=None,
             ),
-        )
-
-
-class _Reconciler:
-    def reconcile(self, **values):
-        return tuple(
-            ReconciliationDecision(action=ReconciliationAction.ADD)
-            for _ in values["candidates"]
         )
 
 
@@ -68,7 +56,6 @@ class MemoryLifecycleTimeTests(unittest.TestCase):
         learning = MemoryLearning(
             store_memory=store,
             memory_extractor=_Extractor(),
-            memory_reconciler=_Reconciler(),
             lifecycle_assigner=LifecycleAssigner(),
         )
 
@@ -80,9 +67,7 @@ class MemoryLifecycleTimeTests(unittest.TestCase):
                 messages=(source,),
             ),
             target_messages=(source,),
-            evidence_messages=(source,),
             extraction_pack=memory_pack,
-            reconciliation_pack=memory_pack,
             usage_collector=ModelUsageCollector(),
             diagnostics_collector=None,
         )

@@ -18,7 +18,7 @@ from fluxmem.adapters.postgres.models.base import Base
 
 
 class MemoryConflictRow(Base):
-    """One undirected potential-conflict edge stored in canonical order."""
+    """Legacy mapping retained for compatibility with migration 0003."""
 
     __tablename__ = "memory_conflicts"
     __table_args__ = (

@@ -43,7 +43,7 @@ question:
 
 The default `--context-mode memory` answers from retrieved FluxMem memories
 without raw transcript history. Full-context mode answers from transcript
-history without retrieval, extraction, reconciliation, or lifecycle calls.
+history without retrieval, extraction, or lifecycle calls.
 
 The harness atomically updates `checkpoint.json` after every completed source
 turn and scored question. If the process is interrupted, repeat the same
@@ -59,9 +59,9 @@ selection, dataset, model configuration, and output directory with `--resume`:
 Resume validates the run ID, dataset, selected conversations, categories, and
 models before continuing. It also prevents resuming a memory run as a
 full-context run or vice versa. The operation that was in flight at interruption
-may be repeated. Session and message writes are idempotent; memory
-reconciliation handles any memory writes that completed before the checkpoint
-was updated.
+may be repeated. Session and message writes are idempotent. Because extracted
+memories are intentionally not deduplicated, repeating a learning turn whose
+memory writes completed before its checkpoint can store those memories again.
 
 Progress can be inspected while the run is active:
 

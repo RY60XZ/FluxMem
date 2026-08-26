@@ -9,7 +9,6 @@ from fluxmem.domain.llm import (
     ModelCallUsage,
     ModelTokenUsage,
     ProposedMemory,
-    ReconciliationDecision,
 )
 from fluxmem.domain.message import Message
 
@@ -68,16 +67,3 @@ class MemoryExtractor(Protocol):
         usage_recorder: ModelUsageRecorder | None = None,
         diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
     ) -> tuple[ProposedMemory, ...]: ...
-
-
-class MemoryReconciler(Protocol):
-    def reconcile(
-        self,
-        *,
-        candidates: tuple[ProposedMemory, ...],
-        memory_pack: MemoryPack,
-        evidence_messages: tuple[Message, ...],
-        session_history: MessagePack,
-        usage_recorder: ModelUsageRecorder | None = None,
-        diagnostics_recorder: ModelDiagnosticsRecorder | None = None,
-    ) -> tuple[ReconciliationDecision, ...]: ...
