@@ -44,16 +44,26 @@ class MemoryLLMTaskTests(unittest.TestCase):
             messages=(self.message,),
         )
 
-    def test_extractor_preserves_duplicate_candidates(self) -> None:
-        raw_candidate = {
-            "content": "Alice prefers tea.",
-            "source_message_ref": 1,
-            "session_limited": False,
-            "valid_from": None,
-            "valid_to": None,
-        }
+    def test_extractor_preserves_all_candidates(self) -> None:
         provider = _Provider(
-            {"memories": [raw_candidate, raw_candidate.copy()]}
+            {
+                "memories": [
+                    {
+                        "content": "Alice prefers tea.",
+                        "source_message_ref": 1,
+                        "session_limited": False,
+                        "valid_from": None,
+                        "valid_to": None,
+                    },
+                    {
+                        "content": "Alice enjoys oolong tea.",
+                        "source_message_ref": 1,
+                        "session_limited": False,
+                        "valid_from": None,
+                        "valid_to": None,
+                    },
+                ]
+            }
         )
         extractor = LLMMemoryExtractor(
             provider=provider,
@@ -89,7 +99,8 @@ class MemoryLLMTaskTests(unittest.TestCase):
         )
 
         self.assertEqual(len(candidates), 2)
-        self.assertEqual(candidates[0], candidates[1])
+        self.assertEqual(candidates[0].content, "Alice prefers tea.")
+        self.assertEqual(candidates[1].content, "Alice enjoys oolong tea.")
         input_text = str(provider.calls[0]["input_text"])
         self.assertNotIn('"speaker"', input_text)
         self.assertIn('"role":"user"', input_text)

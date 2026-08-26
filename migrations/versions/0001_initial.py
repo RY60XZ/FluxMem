@@ -1,7 +1,10 @@
-"""Create the initial FluxMem schema."""
+"""Create the FluxMem schema."""
 
 import sqlalchemy as sa
 from alembic import op
+from pgvector.sqlalchemy import Vector
+from sqlalchemy.dialects import postgresql
+
 
 revision = "0001"
 down_revision = None
@@ -10,6 +13,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
     op.create_table(
         "users",
         sa.Column("user_id", sa.Uuid(), nullable=False),
@@ -98,7 +103,12 @@ def upgrade() -> None:
             server_default="0",
             nullable=False,
         ),
-        sa.Column("use_count", sa.Integer(), server_default="0", nullable=False),
+        sa.Column(
+            "use_count",
+            sa.Integer(),
+            server_default="0",
+            nullable=False,
+        ),
         sa.Column("last_used_at", sa.DateTime(timezone=True)),
         sa.Column("decision_source", sa.Text(), nullable=False),
         sa.Column(
@@ -149,9 +159,92 @@ def upgrade() -> None:
         ["status", "memory_id"],
     )
     op.create_table(
+        "memory_indexes",
+        sa.Column("memory_id", sa.Uuid(), nullable=False),
+        sa.Column("embedding", Vector(1536)),
+        sa.Column("search_text", postgresql.TSVECTOR(), nullable=False),
+        sa.Column("embedding_model", sa.Text()),
+        sa.Column(
+            "index_status",
+            sa.Text(),
+            server_default="pending",
+            nullable=False,
+        ),
+        sa.Column("indexed_at", sa.DateTime(timezone=True)),
+        sa.CheckConstraint(
+            "index_status IN ('ready', 'pending')",
+            name="memory_indexes_status",
+        ),
+        sa.CheckConstraint(
+            "(index_status = 'ready' AND embedding IS NOT NULL "
+            "AND embedding_model IS NOT NULL) OR "
+            "(index_status = 'pending' AND embedding IS NULL "
+            "AND embedding_model IS NULL)",
+            name="memory_indexes_state",
+        ),
+        sa.ForeignKeyConstraint(
+            ["memory_id"],
+            ["memories.memory_id"],
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("memory_id"),
+    )
+    op.create_index(
+        "memory_indexes_search_text_gin",
+        "memory_indexes",
+        ["search_text"],
+        postgresql_using="gin",
+    )
+    op.create_index(
+        "memory_indexes_embedding_hnsw",
+        "memory_indexes",
+        ["embedding"],
+        postgresql_using="hnsw",
+        postgresql_ops={"embedding": "vector_cosine_ops"},
+    )
+    op.create_table(
+        "retrieval_queries",
+        sa.Column("query_id", sa.Uuid(), nullable=False),
+        sa.Column("session_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(["session_id"], ["sessions.session_id"]),
+        sa.PrimaryKeyConstraint("query_id"),
+    )
+    op.create_index(
+        "retrieval_queries_by_session",
+        "retrieval_queries",
+        ["session_id", "created_at", "query_id"],
+    )
+    op.create_table(
+        "retrieval_candidates",
+        sa.Column("query_id", sa.Uuid(), nullable=False),
+        sa.Column("memory_id", sa.Uuid(), nullable=False),
+        sa.Column("rank", sa.Integer(), nullable=False),
+        sa.Column("score", sa.Float(), nullable=False),
+        sa.CheckConstraint("rank >= 1", name="retrieval_candidates_rank"),
+        sa.CheckConstraint("score >= 0", name="retrieval_candidates_score"),
+        sa.ForeignKeyConstraint(
+            ["query_id"],
+            ["retrieval_queries.query_id"],
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["memory_id"],
+            ["memories.memory_id"],
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("query_id", "memory_id"),
+    )
+    op.create_table(
         "memory_usage",
         sa.Column("usage_id", sa.Uuid(), nullable=False),
         sa.Column("memory_id", sa.Uuid(), nullable=False),
+        sa.Column("query_id", sa.Uuid(), nullable=False),
         sa.Column("usage_type", sa.Text(), nullable=False),
         sa.Column("rank", sa.Integer()),
         sa.Column("contribution", sa.Float()),
@@ -175,11 +268,19 @@ def upgrade() -> None:
             name="memory_usage_contribution",
         ),
         sa.ForeignKeyConstraint(
-            ["memory_id"],
-            ["memories.memory_id"],
+            ["query_id", "memory_id"],
+            [
+                "retrieval_candidates.query_id",
+                "retrieval_candidates.memory_id",
+            ],
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("usage_id"),
+        sa.UniqueConstraint(
+            "memory_id",
+            "query_id",
+            name="memory_usage_memory_query_key",
+        ),
     )
     op.create_index(
         "memory_usage_by_memory_time",
@@ -190,6 +291,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("memory_usage")
+    op.drop_table("retrieval_candidates")
+    op.drop_table("retrieval_queries")
+    op.drop_table("memory_indexes")
     op.drop_table("memory_lifecycle")
     op.drop_table("memories")
     op.drop_table("messages")

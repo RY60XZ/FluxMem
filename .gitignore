@@ -10,3 +10,4 @@ dist/
 workflow-traces/
 .cache/
 benchmark-runs/
+runs/

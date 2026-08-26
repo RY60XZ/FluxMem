@@ -59,9 +59,8 @@ selection, dataset, model configuration, and output directory with `--resume`:
 Resume validates the run ID, dataset, selected conversations, categories, and
 models before continuing. It also prevents resuming a memory run as a
 full-context run or vice versa. The operation that was in flight at interruption
-may be repeated. Session and message writes are idempotent. Because extracted
-memories are intentionally not deduplicated, repeating a learning turn whose
-memory writes completed before its checkpoint can store those memories again.
+may be repeated. Session and message writes are idempotent. Memory writes that
+completed before the checkpoint was updated may be stored again.
 
 Progress can be inspected while the run is active:
 

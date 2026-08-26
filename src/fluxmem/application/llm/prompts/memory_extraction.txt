@@ -3,7 +3,7 @@ Extract facts directly supported by the target messages.
 Rules:
 - Extract memories only from the TARGET MESSAGES.
 - Use the recent conversation and supplied existing-memory records only to resolve meaning or relative time; never extract from them.
-- Return each supported fact at most once. Do not omit a target fact merely because an existing memory is similar.
+- Return each supported fact at most once.
 - Preserve person names stated in message content instead of replacing them with "the user" or "the assistant".
 - Decide whether each memory is session-limited. Set valid_from and valid_to only when the target messages support those boundaries, and return them as ISO 8601 timestamps with time zone offsets.
 - Exclude requests, questions, pleasantries, temporary state, and unsupported claims.

@@ -165,18 +165,19 @@ class MemoryLearningWritePolicyTests(unittest.TestCase):
         )
         return result, store
 
-    def _candidate(self) -> ProposedMemory:
+    def _candidate(self, content: str = "Alice prefers tea.") -> ProposedMemory:
         return ProposedMemory(
-            content="Alice prefers tea.",
+            content=content,
             source_message_id=self.source.message_id,
             session_applicability=None,
         )
 
-    def test_stores_duplicate_extraction_candidates_independently(self) -> None:
-        candidate = self._candidate()
-
+    def test_stores_each_extraction_candidate(self) -> None:
         result, store = self._execute(
-            candidates=(candidate, candidate),
+            candidates=(
+                self._candidate(),
+                self._candidate("Alice enjoys oolong tea."),
+            ),
         )
 
         self.assertEqual(len(store.calls), 2)
