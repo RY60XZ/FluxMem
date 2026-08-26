@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from fluxmem.application.errors import (
     InvalidRetrievalContextError,
     SessionNotFoundError,
 )
-from fluxmem.application.ports.clock import Clock, SystemClock
 from fluxmem.application.ports.embeddings import (
     EmbeddingProvider,
     EmbeddingProviderError,
@@ -122,13 +122,11 @@ class HybridMemoryRetriever:
         unit_of_work_factory: Callable[[], UnitOfWork],
         embedding_provider: EmbeddingProvider | None = None,
         settings: HybridRetrievalSettings | None = None,
-        clock: Clock | None = None,
         query_id_factory: Callable[[], UUID] = uuid4,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._embedding_provider = embedding_provider
         self._settings = settings or HybridRetrievalSettings()
-        self._clock = clock or SystemClock()
         self._query_id_factory = query_id_factory
         if (
             embedding_provider is not None
@@ -144,6 +142,7 @@ class HybridMemoryRetriever:
         user_id: UUID,
         session_id: UUID,
         query_text: str,
+        as_of: datetime,
         limit: int,
     ) -> MemoryPack:
         if limit < 1:
@@ -165,14 +164,13 @@ class HybridMemoryRetriever:
                     "embedding provider returned a vector with invalid dimensions"
                 )
 
-        retrieved_at = self._clock.now()
         query_id = self._query_id_factory()
         search_query = MemorySearchQuery(
             user_id=user_id,
             session_id=session_id,
             text=query_text,
             embedding=query_embedding,
-            as_of=retrieved_at,
+            as_of=as_of,
             limit=limit,
             candidate_limit=self._settings.candidate_limit(limit),
             rrf_k=self._settings.rrf_k,
@@ -195,7 +193,7 @@ class HybridMemoryRetriever:
                 query_id=query_id,
                 session_id=session_id,
                 candidates=memories,
-                created_at=retrieved_at,
+                created_at=as_of,
             )
             unit_of_work.commit()
 
@@ -225,5 +223,6 @@ class HybridMemoryRetriever:
                 message_pack=retrieval_messages,
                 settings=self._settings,
             ),
+            as_of=message.created_at,
             limit=limit,
         )

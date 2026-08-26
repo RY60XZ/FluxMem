@@ -7,7 +7,8 @@ from uuid import uuid4
 
 from fluxmem import LLMMemoryExtractor, LLMTaskSettings
 from fluxmem.application.ports.llm import StructuredModelResponse
-from fluxmem.domain.info_pack import MemoryPack, MessagePack
+from fluxmem.domain.info_pack import MemoryPack, MessagePack, RetrievedMemory
+from fluxmem.domain.memory import Memory
 from fluxmem.domain.message import Message
 
 
@@ -34,7 +35,7 @@ class MemoryLLMTaskTests(unittest.TestCase):
             session_id=self.session_id,
             role="user",
             agent_id="Alice",
-            content="I prefer tea.",
+            content="Alice: I prefer tea.",
             created_at=self.created_at,
         )
         self.history = MessagePack(
@@ -65,7 +66,20 @@ class MemoryLLMTaskTests(unittest.TestCase):
             query_id=uuid4(),
             user_id=self.user_id,
             session_id=self.session_id,
-            memories=(),
+            memories=(
+                RetrievedMemory(
+                    memory=Memory(
+                        memory_id=uuid4(),
+                        message_id=uuid4(),
+                        content="Alice previously preferred coffee.",
+                        created_at=self.created_at,
+                    ),
+                    rank=1,
+                    score=0.9,
+                    retention=1.0,
+                    retrieval_reasons=("lexical",),
+                ),
+            ),
         )
 
         candidates = extractor.extract(
@@ -76,7 +90,54 @@ class MemoryLLMTaskTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 2)
         self.assertEqual(candidates[0], candidates[1])
+        input_text = str(provider.calls[0]["input_text"])
+        self.assertNotIn('"speaker"', input_text)
+        self.assertIn('"role":"user"', input_text)
+        self.assertIn("Alice: I prefer tea.", input_text)
+        self.assertIn("Alice previously preferred coffee.", input_text)
 
+    def test_default_extractor_context_includes_twenty_messages(self) -> None:
+        messages = tuple(
+            Message(
+                message_id=uuid4(),
+                session_id=self.session_id,
+                role="user",
+                agent_id="Alice",
+                content=f"Alice: message-{index}",
+                created_at=self.created_at,
+            )
+            for index in range(21)
+        )
+        provider = _Provider({"memories": []})
+        extractor = LLMMemoryExtractor(
+            provider=provider,
+            settings=LLMTaskSettings(
+                model="test-model",
+                repair_invalid_output=False,
+            ),
+        )
+
+        extractor.extract(
+            target_messages=(messages[-1],),
+            session_history=MessagePack(
+                user_id=self.user_id,
+                session_id=self.session_id,
+                messages=messages,
+            ),
+            memory_pack=MemoryPack(
+                query_id=uuid4(),
+                user_id=self.user_id,
+                session_id=self.session_id,
+                memories=(),
+            ),
+        )
+
+        input_text = str(provider.calls[0]["input_text"])
+        conversation = input_text.split("\n\nMEMORIES:", maxsplit=1)[0]
+        self.assertNotIn("Alice: message-0", conversation)
+        self.assertIn("Alice: message-1", conversation)
+        self.assertIn("Alice: message-20", conversation)
+        self.assertEqual(conversation.count('"message_ref"'), 20)
 
 
 if __name__ == "__main__":

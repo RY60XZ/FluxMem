@@ -12,6 +12,10 @@ from fluxmem import (
     MessagePack,
 )
 from fluxmem_infrastructure.answering import AnsweringAgent
+from fluxmem_infrastructure.answering.context import (
+    AnswerContextSettings,
+    render_answer_context,
+)
 from fluxmem_infrastructure.answering.generator import GeneratedAnswer
 
 
@@ -81,6 +85,48 @@ class _Generator:
 
 
 class AnsweringAgentTests(unittest.TestCase):
+    def test_rendered_messages_use_role_without_a_speaker_field(self) -> None:
+        user_id = uuid4()
+        session_id = uuid4()
+        created_at = datetime(2023, 5, 9, tzinfo=timezone.utc)
+        history_message = Message(
+            message_id=uuid4(),
+            session_id=session_id,
+            role="user",
+            agent_id="Alice",
+            content="Alice: I live in Toronto.",
+            created_at=created_at,
+        )
+        query = Message(
+            message_id=uuid4(),
+            session_id=session_id,
+            role="user",
+            agent_id=None,
+            content="Where does Alice live?",
+            created_at=created_at,
+        )
+
+        rendered = render_answer_context(
+            query=query,
+            history=MessagePack(
+                user_id=user_id,
+                session_id=session_id,
+                messages=(history_message,),
+            ),
+            memories=MemoryPack(
+                query_id=uuid4(),
+                user_id=user_id,
+                session_id=session_id,
+                memories=(),
+            ),
+            instructions="Answer from the supplied evidence.",
+            settings=AnswerContextSettings(),
+        )
+
+        self.assertNotIn('"speaker"', rendered.input_text)
+        self.assertIn('"role":"user"', rendered.input_text)
+        self.assertIn("Alice: I live in Toronto.", rendered.input_text)
+
     def test_answer_uses_only_memory_retrieval_and_history(self) -> None:
         user_id = uuid4()
         session_id = uuid4()

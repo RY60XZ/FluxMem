@@ -89,8 +89,6 @@ def _message_line(message: Message) -> str:
         "content": message.content,
         "created_at": _timestamp(message.created_at),
     }
-    if message.agent_id is not None:
-        value["speaker"] = message.agent_id
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 

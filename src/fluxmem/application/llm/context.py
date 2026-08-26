@@ -12,7 +12,7 @@ from fluxmem.domain.message import Message
 @dataclass(frozen=True, slots=True)
 class LLMContextSettings:
     maximum_history_messages: int = 128
-    maximum_write_history_messages: int = 6
+    maximum_write_history_messages: int = 20
     maximum_write_history_characters: int = 4_000
     maximum_write_message_content_characters: int = 1_000
     maximum_memory_characters: int = 16_000
@@ -187,11 +187,6 @@ def render_messages(
         raw_record = {
             "message_ref": message_limit,
             "role": message.role,
-            **(
-                {"speaker": message.agent_id}
-                if message.agent_id is not None
-                else {}
-            ),
             "content": (
                 _clip(message.content, limit=maximum_content_characters)
                 if maximum_content_characters is not None

@@ -25,6 +25,11 @@ class InfrastructureSettingsTests(unittest.TestCase):
         self.assertEqual(settings.judge_model, settings.answer_model)
         self.assertEqual(settings.extraction_model, DEFAULT_OPENROUTER_MODEL)
         self.assertEqual(settings.lifecycle_model, DEFAULT_OPENROUTER_MODEL)
+        self.assertEqual(settings.memory_write_history_messages, 20)
+        self.assertEqual(
+            settings.memory_context_settings().maximum_write_history_messages,
+            20,
+        )
 
     def test_judge_model_defaults_to_answer_model_and_can_be_overridden(
         self,
@@ -45,6 +50,21 @@ class InfrastructureSettingsTests(unittest.TestCase):
         self.assertEqual(
             separate.judge_model_settings().model,
             "judge-model",
+        )
+
+    def test_extractor_history_window_can_be_overridden(self) -> None:
+        settings = InfrastructureSettings.from_environment(
+            {
+                "FLUXMEM_DATABASE_URL": "postgresql+psycopg://localhost/fluxmem",
+                "OPENROUTER_API_KEY": "test-key",
+                "FLUXMEM_MEMORY_WRITE_HISTORY_MESSAGES": "24",
+            }
+        )
+
+        self.assertEqual(settings.memory_write_history_messages, 24)
+        self.assertEqual(
+            settings.memory_context_settings().maximum_write_history_messages,
+            24,
         )
 
 if __name__ == "__main__":

@@ -9,6 +9,9 @@ from sqlalchemy.dialects import postgresql
 from fluxmem.adapters.postgres.repositories.memories import (
     SqlAlchemyMemoryRepository,
 )
+from fluxmem.application.read.retrieval import HybridMemoryRetriever
+from fluxmem.domain.info_pack import MessagePack
+from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import MemorySearchQuery
 
 
@@ -26,7 +29,79 @@ class _CapturingSession:
         return _EmptyResult()
 
 
+class _OwnedSessions:
+    def is_owned_by(self, *, session_id, user_id) -> bool:
+        del session_id, user_id
+        return True
+
+
+class _CapturingMemories:
+    def __init__(self) -> None:
+        self.query: MemorySearchQuery | None = None
+
+    def search(self, *, query: MemorySearchQuery):
+        self.query = query
+        return ()
+
+
+class _CapturingRetrievals:
+    def __init__(self) -> None:
+        self.created_at: datetime | None = None
+
+    def add(self, *, created_at, **values) -> None:
+        del values
+        self.created_at = created_at
+
+
+class _RetrievalUnitOfWork:
+    def __init__(self) -> None:
+        self.sessions = _OwnedSessions()
+        self.memories = _CapturingMemories()
+        self.retrievals = _CapturingRetrievals()
+        self.commit_count = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        del exc_type, exc_value, traceback
+
+    def commit(self) -> None:
+        self.commit_count += 1
+
+
 class TemporalRetrievalTests(unittest.TestCase):
+    def test_hybrid_retrieval_uses_the_query_message_time(self) -> None:
+        user_id = uuid4()
+        session_id = uuid4()
+        query_time = datetime(2023, 5, 8, 13, 56, tzinfo=timezone.utc)
+        query = Message(
+            message_id=uuid4(),
+            session_id=session_id,
+            role="user",
+            agent_id=None,
+            content="Where does Alice live?",
+            created_at=query_time,
+        )
+        unit_of_work = _RetrievalUnitOfWork()
+        retriever = HybridMemoryRetriever(
+            unit_of_work_factory=lambda: unit_of_work,
+        )
+
+        retriever.execute(
+            message=query,
+            session_history=MessagePack(
+                user_id=user_id,
+                session_id=session_id,
+                messages=(),
+            ),
+        )
+
+        assert unit_of_work.memories.query is not None
+        self.assertEqual(unit_of_work.memories.query.as_of, query_time)
+        self.assertEqual(unit_of_work.retrievals.created_at, query_time)
+        self.assertEqual(unit_of_work.commit_count, 1)
+
     def test_memory_search_does_not_filter_by_validity_interval(self) -> None:
         session = _CapturingSession()
         repository = SqlAlchemyMemoryRepository(session)
@@ -49,6 +124,7 @@ class TemporalRetrievalTests(unittest.TestCase):
         sql = _compiled_sql(session.statement)
         self.assertNotIn("memories.valid_from <=", sql)
         self.assertNotIn("memories.valid_to >=", sql)
+
 
 def _compiled_sql(statement) -> str:
     if statement is None:

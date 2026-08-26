@@ -34,6 +34,7 @@ class InfrastructureSettings:
     llm_timeout_seconds: float = 60.0
     llm_maximum_output_tokens: int = 2_048
     memory_history_messages: int = 128
+    memory_write_history_messages: int = 20
     answer_history_messages: int = 128
     answer_input_token_budget: int = 64_000
     embedding_timeout_seconds: float = 30.0
@@ -86,6 +87,11 @@ class InfrastructureSettings:
             memory_history_messages=_positive_int(
                 values, "FLUXMEM_MEMORY_HISTORY_MESSAGES", default=128
             ),
+            memory_write_history_messages=_positive_int(
+                values,
+                "FLUXMEM_MEMORY_WRITE_HISTORY_MESSAGES",
+                default=20,
+            ),
             answer_history_messages=_positive_int(
                 values, "FLUXMEM_ANSWER_HISTORY_MESSAGES", default=128
             ),
@@ -135,6 +141,7 @@ class InfrastructureSettings:
     def memory_context_settings(self) -> LLMContextSettings:
         return LLMContextSettings(
             maximum_history_messages=self.memory_history_messages,
+            maximum_write_history_messages=self.memory_write_history_messages,
         )
 
     def answer_model_settings(self) -> AnswerModelSettings:

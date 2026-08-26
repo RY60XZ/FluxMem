@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Protocol
@@ -404,7 +404,7 @@ class LocomoRunner:
                     user_id=user_id,
                     session_id=session_id,
                     content=question.question,
-                    created_at=last_turn_at + timedelta(seconds=1),
+                    created_at=last_turn_at,
                 )
                 prediction = _final_answer(result.answer.content)
                 retrieval = _retrieval_dict(result)

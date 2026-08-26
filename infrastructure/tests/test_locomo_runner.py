@@ -99,6 +99,7 @@ class _Answering:
         self._memory = memory
         self.cancel_on_call = cancel_on_call
         self.calls: list[str] = []
+        self.created_ats: list[datetime | None] = []
 
     def answer(
         self,
@@ -111,6 +112,7 @@ class _Answering:
     ):
         del retrieval_limit
         self.calls.append(content)
+        self.created_ats.append(created_at)
         if len(self.calls) == self.cancel_on_call:
             raise KeyboardInterrupt
         source = self._memory.messages_by_user[user_id][0]
@@ -246,22 +248,28 @@ class LocomoRunnerTests(unittest.TestCase):
 
     def test_single_mode_uses_the_same_conversation_pipeline(self) -> None:
         memory = _Memory()
+        conversation = _conversation_with_second_session("conv-26")
+        answering = _Answering(memory)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             summary = LocomoRunner(
                 memory=memory,
-                answering=_Answering(memory),
+                answering=answering,
                 judge=_Judge(),
                 output_dir=root / "results",
                 dataset_path=root / "locomo.json",
                 dataset_sha256="fixture",
                 mode="single",
                 model_settings={"answer": "test", "judge": "test"},
-            ).run((_conversation("conv-26"),))
+            ).run((conversation,))
 
         self.assertEqual(summary["conversation_count"], 1)
         self.assertEqual(summary["question_count"], 1)
         self.assertEqual(summary["failed_conversations"], [])
+        self.assertEqual(
+            answering.created_ats,
+            [conversation.turns[-1].occurred_at],
+        )
 
     def test_full_context_mode_stores_transcript_without_memory_learning(
         self,
@@ -452,6 +460,31 @@ def _conversation_with_two_questions(sample_id: str) -> LocomoConversation:
                 category=4,
             ),
         ),
+    )
+
+
+def _conversation_with_second_session(sample_id: str) -> LocomoConversation:
+    base = _conversation(sample_id)
+    occurred_at = datetime(2023, 5, 10, 9, 30, tzinfo=timezone.utc)
+    return LocomoConversation(
+        sample_id=base.sample_id,
+        speaker_a=base.speaker_a,
+        speaker_b=base.speaker_b,
+        sessions=(
+            *base.sessions,
+            LocomoSession(
+                number=2,
+                occurred_at=occurred_at,
+                turns=(
+                    LocomoTurn(
+                        speaker="Alice",
+                        text="I still live in Toronto.",
+                        occurred_at=occurred_at,
+                    ),
+                ),
+            ),
+        ),
+        questions=base.questions,
     )
 
 
