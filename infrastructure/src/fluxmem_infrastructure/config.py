@@ -9,12 +9,14 @@ from fluxmem import LLMContextSettings, LLMTaskSettings, MemoryLayerSettings
 from fluxmem_infrastructure.answering import (
     AnswerContextSettings,
     AnswerModelSettings,
+    MemoryRerankerSettings,
 )
 from fluxmem_infrastructure.providers.openrouter import OPENROUTER_BASE_URL
 
 
 DEFAULT_OPENROUTER_MODEL = "google/gemma-4-26b-a4b-it"
 DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small"
+DEFAULT_OPENROUTER_RERANKER_MODEL = "voyageai/rerank-2.5"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +27,7 @@ class InfrastructureSettings:
     openrouter_api_key: str = field(repr=False)
     answer_model: str = DEFAULT_OPENROUTER_MODEL
     judge_model: str = DEFAULT_OPENROUTER_MODEL
+    reranker_model: str = DEFAULT_OPENROUTER_RERANKER_MODEL
     extraction_model: str = DEFAULT_OPENROUTER_MODEL
     lifecycle_model: str = DEFAULT_OPENROUTER_MODEL
     embedding_model: str = DEFAULT_OPENROUTER_EMBEDDING_MODEL
@@ -54,6 +57,10 @@ class InfrastructureSettings:
             _optional(values, "FLUXMEM_LLM_MODEL") or DEFAULT_OPENROUTER_MODEL
         )
         answer_model = _optional(values, "FLUXMEM_ANSWER_MODEL") or shared_model
+        reranker_model = (
+            _optional(values, "FLUXMEM_RERANKER_MODEL")
+            or DEFAULT_OPENROUTER_RERANKER_MODEL
+        )
         return cls(
             database_url=_required(values, "FLUXMEM_DATABASE_URL"),
             openrouter_api_key=_required(values, "OPENROUTER_API_KEY"),
@@ -61,6 +68,7 @@ class InfrastructureSettings:
             judge_model=(
                 _optional(values, "FLUXMEM_JUDGE_MODEL") or answer_model
             ),
+            reranker_model=reranker_model,
             extraction_model=(
                 _optional(values, "FLUXMEM_EXTRACTION_MODEL") or shared_model
             ),
@@ -156,6 +164,13 @@ class InfrastructureSettings:
             model=self.judge_model,
             timeout_seconds=self.llm_timeout_seconds,
             maximum_output_tokens=self.llm_maximum_output_tokens,
+        )
+
+    def reranker_settings(self) -> MemoryRerankerSettings:
+        return MemoryRerankerSettings(
+            model=self.reranker_model,
+            timeout_seconds=self.llm_timeout_seconds,
+            maximum_candidates=50,
         )
 
     def answer_context_settings(self) -> AnswerContextSettings:

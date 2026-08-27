@@ -105,6 +105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         model_settings = {
             "answer": settings.answer_model,
             "judge": settings.judge_model,
+            "reranker": settings.reranker_model,
             "extraction": settings.extraction_model,
             "lifecycle": settings.lifecycle_model,
             "embedding": settings.embedding_model,
@@ -125,6 +126,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             answer_with_history=full_context,
             answer_with_memories=not full_context,
             enable_memory_learning=not full_context,
+            enable_memory_reranking=not full_context,
             answer_instructions=(
                 full_context_answer_prompt() if full_context else answer_prompt()
             ),

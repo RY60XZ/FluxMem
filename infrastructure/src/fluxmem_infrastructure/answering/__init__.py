@@ -10,6 +10,17 @@ from fluxmem_infrastructure.answering.generator import (
     AnswerModelSettings,
 )
 from fluxmem_infrastructure.answering.context import AnswerContextSettings
+from fluxmem_infrastructure.answering.reranker import (
+    MemoryReranker,
+    MemoryRerankerSettings,
+    ModelMemoryReranker,
+    RerankProvider,
+    RerankProviderResponse,
+    RerankProviderResult,
+    RerankerCandidateDiagnostics,
+    RerankerDiagnostics,
+    RerankingOutcome,
+)
 
 __all__ = (
     "AnswerGenerator",
@@ -18,4 +29,13 @@ __all__ = (
     "AnswerResult",
     "AnswerTurnResult",
     "AnsweringAgent",
+    "MemoryReranker",
+    "MemoryRerankerSettings",
+    "ModelMemoryReranker",
+    "RerankProvider",
+    "RerankProviderResponse",
+    "RerankProviderResult",
+    "RerankerCandidateDiagnostics",
+    "RerankerDiagnostics",
+    "RerankingOutcome",
 )

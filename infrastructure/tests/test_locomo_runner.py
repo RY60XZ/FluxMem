@@ -14,12 +14,17 @@ from fluxmem import (
     Message,
     MessageIngestionResult,
     ModelTokenUsage,
+    RetrievalCandidateDiagnostics,
+    RetrievalQueryDiagnostics,
     RetrievedMemory,
     Session,
 )
 from fluxmem.domain.llm import LLMTaskKind, ModelCallUsage
 from fluxmem.domain.memory import Memory
-from fluxmem_infrastructure.answering import AnswerResult
+from fluxmem_infrastructure.answering import (
+    AnswerResult,
+    RerankerDiagnostics,
+)
 from fluxmem_infrastructure.locomo.dataset import (
     LocomoConversation,
     LocomoQuestion,
@@ -134,7 +139,24 @@ class _Answering:
                     score=1.0,
                     retention=1.0,
                     retrieval_reasons=("lexical",),
+                    diagnostics=RetrievalCandidateDiagnostics(
+                        initial_rank=2,
+                        fusion_score=0.8,
+                        lifecycle_multiplier=0.9,
+                        lexical_rank=3,
+                        lexical_score=0.7,
+                    ),
                 ),
+            ),
+            diagnostics=RetrievalQueryDiagnostics(
+                search_text=content,
+                message_count=1,
+                result_limit=50,
+                source_candidate_limit=200,
+                returned_count=1,
+                dense_enabled=True,
+                lexical_enabled=True,
+                embedding_model="test-embedding",
             ),
         )
         query = Message(
@@ -167,6 +189,18 @@ class _Answering:
                 input_tokens=10,
                 output_tokens=2,
                 total_tokens=12,
+            ),
+            reranker=RerankerDiagnostics(
+                status="completed",
+                attempted=True,
+                candidate_count=1,
+                model="test-reranker",
+                response_id="reranker-response",
+                usage=ModelTokenUsage(
+                    input_tokens=4,
+                    output_tokens=1,
+                    total_tokens=5,
+                ),
             ),
         )
 
@@ -218,7 +252,12 @@ class LocomoRunnerTests(unittest.TestCase):
                 stage: values["average_tokens_per_operation"]["total"]
                 for stage, values in summary["token_usage"].items()
             },
-            {"ingestion": 3.0, "answer": 12.0, "judge": 6.0},
+            {
+                "ingestion": 3.0,
+                "answer": 12.0,
+                "reranker": 5.0,
+                "judge": 6.0,
+            },
         )
         self.assertEqual(len(artifacts), 10)
         self.assertEqual(
@@ -244,6 +283,20 @@ class LocomoRunnerTests(unittest.TestCase):
         self.assertEqual(
             question["retrieval"]["memories"][0]["content"],
             "Alice lives in Toronto.",
+        )
+        self.assertEqual(
+            question["retrieval"]["diagnostics"]["search_text"],
+            "Where does Alice live?",
+        )
+        self.assertEqual(
+            question["retrieval"]["reranker"]["candidate_count"],
+            1,
+        )
+        self.assertEqual(
+            question["retrieval"]["memories"][0]["diagnostics"][
+                "initial_rank"
+            ],
+            2,
         )
 
     def test_single_mode_uses_the_same_conversation_pipeline(self) -> None:

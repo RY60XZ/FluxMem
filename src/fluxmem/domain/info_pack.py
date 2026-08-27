@@ -9,6 +9,34 @@ from fluxmem.domain.message import Message
 
 
 @dataclass(frozen=True, slots=True)
+class RetrievalCandidateDiagnostics:
+    """First-stage score components for one returned memory."""
+
+    initial_rank: int
+    fusion_score: float
+    lifecycle_multiplier: float
+    dense_rank: int | None = None
+    dense_similarity: float | None = None
+    lexical_rank: int | None = None
+    lexical_score: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalQueryDiagnostics:
+    """The exact search input and bounds used for one retrieval."""
+
+    search_text: str
+    message_count: int
+    result_limit: int
+    source_candidate_limit: int
+    returned_count: int
+    dense_enabled: bool
+    lexical_enabled: bool
+    embedding_model: str | None = None
+    embedding_error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RetrievedMemory:
     """A memory together with metadata produced by one retrieval query."""
 
@@ -17,6 +45,7 @@ class RetrievedMemory:
     score: float
     retention: float
     retrieval_reasons: tuple[str, ...]
+    diagnostics: RetrievalCandidateDiagnostics | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +56,7 @@ class MemoryPack:
     user_id: UUID
     session_id: UUID
     memories: tuple[RetrievedMemory, ...]
+    diagnostics: RetrievalQueryDiagnostics | None = None
 
 
 @dataclass(frozen=True, slots=True)

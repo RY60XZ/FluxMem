@@ -10,7 +10,10 @@ from fluxmem.adapters.postgres.models.lifecycle import MemoryLifecycleRow
 from fluxmem.adapters.postgres.models.message import MessageRow
 from fluxmem.adapters.postgres.models.memory import MemoryIndexRow, MemoryRow
 from fluxmem.adapters.postgres.models.session import SessionRow
-from fluxmem.domain.info_pack import RetrievedMemory
+from fluxmem.domain.info_pack import (
+    RetrievalCandidateDiagnostics,
+    RetrievedMemory,
+)
 from fluxmem.domain.lifecycle import (
     RETENTION_FLOOR,
     STABILITY_DAYS,
@@ -108,6 +111,7 @@ class SqlAlchemyMemoryRepository:
                     MemoryRow.memory_id.label("memory_id"),
                     literal("lexical").label("source"),
                     lexical_rank.label("source_rank"),
+                    lexical_score.label("source_score"),
                 )
                 .select_from(MemoryIndexRow)
                 .join(
@@ -173,6 +177,9 @@ class SqlAlchemyMemoryRepository:
                     dense_nearest.c.memory_id,
                     literal("dense").label("source"),
                     dense_rank.label("source_rank"),
+                    (literal(1.0) - dense_nearest.c.distance).label(
+                        "source_score"
+                    ),
                 )
                 .select_from(dense_nearest)
             )
@@ -205,6 +212,42 @@ class SqlAlchemyMemoryRepository:
                 func.max(
                     case((candidates.c.source == "lexical", 1), else_=0)
                 ).label("lexical_match"),
+                func.min(
+                    case(
+                        (
+                            candidates.c.source == "dense",
+                            candidates.c.source_rank,
+                        ),
+                        else_=None,
+                    )
+                ).label("dense_rank"),
+                func.max(
+                    case(
+                        (
+                            candidates.c.source == "dense",
+                            candidates.c.source_score,
+                        ),
+                        else_=None,
+                    )
+                ).label("dense_similarity"),
+                func.min(
+                    case(
+                        (
+                            candidates.c.source == "lexical",
+                            candidates.c.source_rank,
+                        ),
+                        else_=None,
+                    )
+                ).label("lexical_rank"),
+                func.max(
+                    case(
+                        (
+                            candidates.c.source == "lexical",
+                            candidates.c.source_score,
+                        ),
+                        else_=None,
+                    )
+                ).label("lexical_score"),
             )
             .group_by(candidates.c.memory_id)
             .cte("fused_candidates")
@@ -234,13 +277,11 @@ class SqlAlchemyMemoryRepository:
             + (MemoryLifecycleRow.retention_snapshot - RETENTION_FLOOR)
             * func.exp(-elapsed_days / stability_days)
         ).label("retention")
-        score = (
-            fused.c.base_score
-            * (
-                query.relevance_floor
-                + (1.0 - query.relevance_floor) * retention
-            )
-        ).label("score")
+        lifecycle_multiplier = (
+            query.relevance_floor
+            + (1.0 - query.relevance_floor) * retention
+        ).label("lifecycle_multiplier")
+        score = (fused.c.base_score * lifecycle_multiplier).label("score")
         statement = (
             select(
                 MemoryRow,
@@ -249,6 +290,11 @@ class SqlAlchemyMemoryRepository:
                 fused.c.base_score,
                 fused.c.dense_match,
                 fused.c.lexical_match,
+                fused.c.dense_rank,
+                fused.c.dense_similarity,
+                fused.c.lexical_rank,
+                fused.c.lexical_score,
+                lifecycle_multiplier,
             )
             .join(fused, fused.c.memory_id == MemoryRow.memory_id)
             .join(MessageRow, MessageRow.message_id == MemoryRow.message_id)
@@ -289,6 +335,33 @@ class SqlAlchemyMemoryRepository:
                     score=float(result.score),
                     retention=float(result.retention),
                     retrieval_reasons=tuple(reasons),
+                    diagnostics=RetrievalCandidateDiagnostics(
+                        initial_rank=rank,
+                        fusion_score=float(result.base_score),
+                        lifecycle_multiplier=float(
+                            result.lifecycle_multiplier
+                        ),
+                        dense_rank=(
+                            int(result.dense_rank)
+                            if result.dense_rank is not None
+                            else None
+                        ),
+                        dense_similarity=(
+                            float(result.dense_similarity)
+                            if result.dense_similarity is not None
+                            else None
+                        ),
+                        lexical_rank=(
+                            int(result.lexical_rank)
+                            if result.lexical_rank is not None
+                            else None
+                        ),
+                        lexical_score=(
+                            float(result.lexical_score)
+                            if result.lexical_score is not None
+                            else None
+                        ),
+                    ),
                 )
             )
         return tuple(retrieved)

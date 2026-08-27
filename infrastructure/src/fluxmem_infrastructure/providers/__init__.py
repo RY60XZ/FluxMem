@@ -9,9 +9,13 @@ from fluxmem_infrastructure.providers.openrouter_chat import (
 from fluxmem_infrastructure.providers.openrouter_embedding import (
     OpenRouterEmbeddingProvider,
 )
+from fluxmem_infrastructure.providers.openrouter_rerank import (
+    OpenRouterRerankProvider,
+)
 
 __all__ = (
     "OpenAIResponsesProvider",
     "OpenRouterChatCompletionsProvider",
     "OpenRouterEmbeddingProvider",
+    "OpenRouterRerankProvider",
 )

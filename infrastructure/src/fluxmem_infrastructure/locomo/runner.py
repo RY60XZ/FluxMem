@@ -643,9 +643,55 @@ def _turn_message(
 
 def _retrieval_dict(result: AnswerResult) -> dict[str, Any]:
     context_ids = set(result.context_memory_ids)
+    query_diagnostics = result.retrieval.context.diagnostics
+    reranker = result.reranker
+    reranker_scores = (
+        {
+            candidate.memory_id: candidate.relevance_score
+            for candidate in reranker.candidates
+        }
+        if reranker is not None
+        else {}
+    )
     return {
         "query": result.query.content,
         "query_id": str(result.retrieval.query_id),
+        "diagnostics": (
+            {
+                "search_text": query_diagnostics.search_text,
+                "message_count": query_diagnostics.message_count,
+                "result_limit": query_diagnostics.result_limit,
+                "source_candidate_limit": (
+                    query_diagnostics.source_candidate_limit
+                ),
+                "returned_count": query_diagnostics.returned_count,
+                "dense_enabled": query_diagnostics.dense_enabled,
+                "lexical_enabled": query_diagnostics.lexical_enabled,
+                "embedding_model": query_diagnostics.embedding_model,
+                "embedding_error": query_diagnostics.embedding_error,
+            }
+            if query_diagnostics is not None
+            else None
+        ),
+        "reranker": (
+            {
+                "status": reranker.status,
+                "attempted": reranker.attempted,
+                "candidate_count": reranker.candidate_count,
+                "model": reranker.model,
+                "provider": reranker.provider,
+                "response_id": reranker.response_id,
+                "search_units": reranker.search_units,
+                "error": reranker.error,
+                "usage": _attempt_usage_dict(
+                    attempted=reranker.attempted,
+                    usage=reranker.usage,
+                    search_units=reranker.search_units,
+                ),
+            }
+            if reranker is not None
+            else None
+        ),
         "memories": [
             {
                 "memory_id": str(retrieved.memory.memory_id),
@@ -653,8 +699,28 @@ def _retrieval_dict(result: AnswerResult) -> dict[str, Any]:
                 "content": retrieved.memory.content,
                 "rank": retrieved.rank,
                 "score": retrieved.score,
+                "reranker_score": reranker_scores.get(
+                    retrieved.memory.memory_id
+                ),
                 "retention": retrieved.retention,
                 "reasons": list(retrieved.retrieval_reasons),
+                "diagnostics": (
+                    {
+                        "initial_rank": retrieved.diagnostics.initial_rank,
+                        "fusion_score": retrieved.diagnostics.fusion_score,
+                        "lifecycle_multiplier": (
+                            retrieved.diagnostics.lifecycle_multiplier
+                        ),
+                        "dense_rank": retrieved.diagnostics.dense_rank,
+                        "dense_similarity": (
+                            retrieved.diagnostics.dense_similarity
+                        ),
+                        "lexical_rank": retrieved.diagnostics.lexical_rank,
+                        "lexical_score": retrieved.diagnostics.lexical_score,
+                    }
+                    if retrieved.diagnostics is not None
+                    else None
+                ),
                 "included_in_answer_context": (
                     retrieved.memory.memory_id in context_ids
                 ),
@@ -735,6 +801,25 @@ def _model_usage_dict(usage: ModelTokenUsage | None) -> dict[str, Any]:
             if usage is not None
             else None
         ),
+    }
+
+
+def _attempt_usage_dict(
+    *,
+    attempted: bool,
+    usage: ModelTokenUsage | None,
+    search_units: int | None = None,
+) -> dict[str, Any]:
+    if attempted:
+        result = _model_usage_dict(usage)
+        result["search_units"] = search_units
+        return result
+    return {
+        "call_count": 0,
+        "reported_call_count": 0,
+        "usage_complete": True,
+        "tokens": {field: 0 for field in _TOKEN_FIELDS},
+        "search_units": 0,
     }
 
 
@@ -827,10 +912,25 @@ def _run_token_usage(
         ingestion_usage.append(usage if isinstance(usage, Mapping) else None)
 
     answer_usage: list[Mapping[str, Any] | None] = []
+    reranker_usage: list[Mapping[str, Any] | None] = []
     judge_usage: list[Mapping[str, Any] | None] = []
     for row in rows:
         usage = row.get("usage")
         answer_usage.append(usage if isinstance(usage, Mapping) else None)
+        retrieval = row.get("retrieval")
+        reranker = (
+            retrieval.get("reranker")
+            if isinstance(retrieval, Mapping)
+            else None
+        )
+        usage = (
+            reranker.get("usage") if isinstance(reranker, Mapping) else None
+        )
+        reranker_usage.append(
+            usage
+            if isinstance(usage, Mapping)
+            else _attempt_usage_dict(attempted=False, usage=None)
+        )
         judgment = row.get("judgment")
         usage = judgment.get("usage") if isinstance(judgment, Mapping) else None
         judge_usage.append(usage if isinstance(usage, Mapping) else None)
@@ -845,6 +945,11 @@ def _run_token_usage(
         ),
         "answer": _aggregate_usage(
             usages=answer_usage,
+            operation="question",
+            operation_count=len(rows),
+        ),
+        "reranker": _aggregate_usage(
+            usages=reranker_usage,
             operation="question",
             operation_count=len(rows),
         ),
@@ -901,6 +1006,14 @@ def _aggregate_usage(
         "usage_complete": usage_complete,
         "tokens": totals,
         "average_tokens_per_operation": averages,
+        "search_units": (
+            sum(
+                int(usage.get("search_units", 0) or 0)
+                for usage in available
+            )
+            if any("search_units" in usage for usage in available)
+            else None
+        ),
     }
 
 

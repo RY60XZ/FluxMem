@@ -14,6 +14,10 @@ from fluxmem import (
     ModelTokenUsage,
 )
 from fluxmem_infrastructure.answering.generator import AnswerGenerator
+from fluxmem_infrastructure.answering.reranker import (
+    MemoryReranker,
+    RerankerDiagnostics,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +28,7 @@ class AnswerResult:
     model: str
     response_id: str | None
     usage: ModelTokenUsage | None
+    reranker: RerankerDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if self.answer.session_id != self.retrieval.query.session_id:
@@ -55,11 +60,13 @@ class AnsweringAgent:
         *,
         memory: FluxMem,
         generator: AnswerGenerator,
+        reranker: MemoryReranker | None = None,
         include_history: bool = True,
         include_memories: bool = True,
     ) -> None:
         self._memory = memory
         self._generator = generator
+        self._reranker = reranker
         self._include_history = include_history
         self._include_memories = include_memories
 
@@ -88,6 +95,17 @@ class AnsweringAgent:
                 created_at=created_at,
             )
         )
+        reranker_diagnostics = None
+        if self._reranker is not None and self._include_memories:
+            reranking = self._reranker.rerank(
+                query=retrieval.query,
+                memory_pack=retrieval.context,
+            )
+            retrieval = MemoryRetrievalResult(
+                query=retrieval.query,
+                context=reranking.memory_pack,
+            )
+            reranker_diagnostics = reranking.diagnostics
         history = (
             self._memory.get_session_history(
                 user_id=user_id,
@@ -120,6 +138,7 @@ class AnsweringAgent:
             model=generated.model,
             response_id=generated.response_id,
             usage=generated.usage,
+            reranker=reranker_diagnostics,
         )
 
     def run_turn(

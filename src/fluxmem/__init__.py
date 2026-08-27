@@ -30,6 +30,8 @@ from fluxmem.domain.info_pack import (
     MemoryPack,
     MemoryRetrievalResult,
     MessagePack,
+    RetrievalCandidateDiagnostics,
+    RetrievalQueryDiagnostics,
     RetrievedMemory,
 )
 from fluxmem.domain.llm import (
@@ -75,6 +77,8 @@ __all__ = (
     "ModelProviderError",
     "ModelTimeoutError",
     "ModelTokenUsage",
+    "RetrievalCandidateDiagnostics",
+    "RetrievalQueryDiagnostics",
     "RetrievedMemory",
     "Session",
     "StructuredModelProvider",

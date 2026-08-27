@@ -106,6 +106,16 @@ class MemoryLLMTaskTests(unittest.TestCase):
         self.assertIn('"role":"user"', input_text)
         self.assertIn("Alice: I prefer tea.", input_text)
         self.assertIn("Alice previously preferred coffee.", input_text)
+        instructions = str(provider.calls[0]["instructions"])
+        self.assertIn(
+            "Do not discard a supported fact based on its expected importance",
+            instructions,
+        )
+        self.assertIn("temporary states", instructions)
+        self.assertNotIn(
+            "Exclude requests, questions, pleasantries, temporary state",
+            instructions,
+        )
 
     def test_default_extractor_context_includes_twenty_messages(self) -> None:
         messages = tuple(
@@ -149,6 +159,55 @@ class MemoryLLMTaskTests(unittest.TestCase):
         self.assertIn("Alice: message-1", conversation)
         self.assertIn("Alice: message-20", conversation)
         self.assertEqual(conversation.count('"message_ref"'), 20)
+
+    def test_extractor_ignores_unparseable_validity_dates(self) -> None:
+        provider = _Provider(
+            {
+                "memories": [
+                    {
+                        "content": "Alice prefers tea.",
+                        "source_message_ref": 1,
+                        "session_limited": False,
+                        "valid_from": "March 16, 2023T14:35:01+00:00",
+                        "valid_to": "July 23, 2023 at 18:46:04 UTC",
+                    },
+                    {
+                        "content": "Alice enjoys oolong tea.",
+                        "source_message_ref": 1,
+                        "session_limited": False,
+                        "valid_from": "2026-08-26T12:00:00+00:00",
+                        "valid_to": "2026-08-27T12:00:00",
+                    },
+                ]
+            }
+        )
+        extractor = LLMMemoryExtractor(
+            provider=provider,
+            settings=LLMTaskSettings(
+                model="test-model",
+                repair_invalid_output=False,
+            ),
+        )
+
+        candidates = extractor.extract(
+            target_messages=(self.message,),
+            session_history=self.history,
+            memory_pack=MemoryPack(
+                query_id=uuid4(),
+                user_id=self.user_id,
+                session_id=self.session_id,
+                memories=(),
+            ),
+        )
+
+        self.assertEqual(len(candidates), 2)
+        self.assertIsNone(candidates[0].valid_from)
+        self.assertIsNone(candidates[0].valid_to)
+        self.assertEqual(
+            candidates[1].valid_from,
+            datetime(2026, 8, 26, 12, tzinfo=timezone.utc),
+        )
+        self.assertIsNone(candidates[1].valid_to)
 
 
 if __name__ == "__main__":

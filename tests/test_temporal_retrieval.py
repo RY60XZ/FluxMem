@@ -9,7 +9,10 @@ from sqlalchemy.dialects import postgresql
 from fluxmem.adapters.postgres.repositories.memories import (
     SqlAlchemyMemoryRepository,
 )
-from fluxmem.application.read.retrieval import HybridMemoryRetriever
+from fluxmem.application.read.retrieval import (
+    HybridMemoryRetriever,
+    HybridRetrievalSettings,
+)
 from fluxmem.domain.info_pack import MessagePack
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import MemorySearchQuery
@@ -71,6 +74,53 @@ class _RetrievalUnitOfWork:
 
 
 class TemporalRetrievalTests(unittest.TestCase):
+    def test_question_only_profile_excludes_stored_conversation_text(self) -> None:
+        user_id = uuid4()
+        session_id = uuid4()
+        query_time = datetime(2023, 5, 8, 13, 56, tzinfo=timezone.utc)
+        prior = Message(
+            message_id=uuid4(),
+            session_id=session_id,
+            role="assistant",
+            agent_id="Alice",
+            content="Unrelated previous conversation.",
+            created_at=query_time,
+        )
+        query = Message(
+            message_id=uuid4(),
+            session_id=session_id,
+            role="user",
+            agent_id=None,
+            content="Where does Alice live?",
+            created_at=query_time,
+        )
+        unit_of_work = _RetrievalUnitOfWork()
+        retriever = HybridMemoryRetriever(
+            unit_of_work_factory=lambda: unit_of_work,
+            settings=HybridRetrievalSettings(max_query_messages=1),
+        )
+
+        result = retriever.execute(
+            message=query,
+            session_history=MessagePack(
+                user_id=user_id,
+                session_id=session_id,
+                messages=(prior,),
+            ),
+            limit=50,
+        )
+
+        assert unit_of_work.memories.query is not None
+        self.assertEqual(
+            unit_of_work.memories.query.text,
+            "Where does Alice live?",
+        )
+        assert result.diagnostics is not None
+        self.assertEqual(result.diagnostics.search_text, query.content)
+        self.assertEqual(result.diagnostics.message_count, 1)
+        self.assertEqual(result.diagnostics.result_limit, 50)
+        self.assertEqual(result.diagnostics.returned_count, 0)
+
     def test_hybrid_retrieval_uses_the_query_message_time(self) -> None:
         user_id = uuid4()
         session_id = uuid4()

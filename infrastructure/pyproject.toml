@@ -9,6 +9,7 @@ description = "Example answering runtime and LoCoMo harness for FluxMem"
 requires-python = ">=3.11"
 dependencies = [
     "fluxmem>=0.1.0",
+    "httpx>=0.27,<1.0",
     "openai>=1.66,<3.0",
     "python-dotenv>=1.0,<2.0",
 ]

@@ -384,9 +384,12 @@ def _optional_datetime(value: object, *, field: str) -> datetime | None:
         return None
     if not isinstance(value, str):
         raise TypeError(f"{field} must be an ISO-8601 string or null")
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
     if parsed.tzinfo is None:
-        raise ValueError(f"{field} must include a timezone")
+        return None
     return parsed
 
 

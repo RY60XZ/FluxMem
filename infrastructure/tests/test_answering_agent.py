@@ -11,7 +11,11 @@ from fluxmem import (
     MessageIngestionResult,
     MessagePack,
 )
-from fluxmem_infrastructure.answering import AnsweringAgent
+from fluxmem_infrastructure.answering import (
+    AnsweringAgent,
+    RerankerDiagnostics,
+    RerankingOutcome,
+)
 from fluxmem_infrastructure.answering.context import (
     AnswerContextSettings,
     render_answer_context,
@@ -81,6 +85,26 @@ class _Generator:
             model="test-model",
             response_id="response-1",
             usage=None,
+        )
+
+
+class _Reranker:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def rerank(self, **values):
+        self.calls.append(values)
+        memory_pack = values["memory_pack"]
+        return RerankingOutcome(
+            memory_pack=memory_pack,
+            diagnostics=RerankerDiagnostics(
+                status="skipped",
+                attempted=False,
+                candidate_count=len(memory_pack.memories),
+                model=None,
+                response_id=None,
+                usage=None,
+            ),
         )
 
 
@@ -161,6 +185,31 @@ class AnsweringAgentTests(unittest.TestCase):
 
         self.assertEqual(memory.calls, ["retrieve"])
         self.assertEqual(generator.calls[0]["history"].messages, ())
+
+    def test_answer_reranks_before_rendering_memory_context(self) -> None:
+        user_id = uuid4()
+        session_id = uuid4()
+        memory = _Memory(user_id=user_id, session_id=session_id)
+        generator = _Generator()
+        reranker = _Reranker()
+        agent = AnsweringAgent(
+            memory=memory,
+            generator=generator,
+            reranker=reranker,
+        )
+
+        result = agent.answer(
+            user_id=user_id,
+            session_id=session_id,
+            content="Who spoke?",
+        )
+
+        self.assertEqual(len(reranker.calls), 1)
+        self.assertIs(
+            generator.calls[0]["memory_pack"],
+            result.retrieval.context,
+        )
+        self.assertEqual(result.reranker.status, "skipped")
 
     def test_answer_can_use_history_without_memory_retrieval(self) -> None:
         user_id = uuid4()

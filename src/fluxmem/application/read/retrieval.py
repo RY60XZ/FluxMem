@@ -14,7 +14,11 @@ from fluxmem.application.ports.embeddings import (
     EmbeddingProviderError,
 )
 from fluxmem.application.ports.unit_of_work import UnitOfWork
-from fluxmem.domain.info_pack import MemoryPack, MessagePack
+from fluxmem.domain.info_pack import (
+    MemoryPack,
+    MessagePack,
+    RetrievalQueryDiagnostics,
+)
 from fluxmem.domain.message import Message
 from fluxmem.domain.retrieval import (
     EMBEDDING_DIMENSIONS,
@@ -60,6 +64,12 @@ class HybridRetrievalSettings:
         return min(requested, self.maximum_candidate_limit)
 
 
+@dataclass(frozen=True, slots=True)
+class _BoundedQuery:
+    text: str
+    message_count: int
+
+
 def _validate_context_message(*, message: Message, history: MessagePack) -> None:
     if message.session_id != history.session_id:
         raise InvalidRetrievalContextError(
@@ -89,11 +99,11 @@ def _extend_message_pack(
     )
 
 
-def _bounded_query_text(
+def _bounded_query(
     *,
     message_pack: MessagePack,
     settings: HybridRetrievalSettings,
-) -> str:
+) -> _BoundedQuery:
     """Prefer recent content while keeping the final query chronological."""
 
     remaining = settings.max_query_characters
@@ -112,7 +122,10 @@ def _bounded_query_text(
         remaining -= len(piece)
         if remaining == 0:
             break
-    return "\n".join(reversed(selected))
+    return _BoundedQuery(
+        text="\n".join(reversed(selected)),
+        message_count=len(selected),
+    )
 
 
 class HybridMemoryRetriever:
@@ -142,6 +155,7 @@ class HybridMemoryRetriever:
         user_id: UUID,
         session_id: UUID,
         query_text: str,
+        query_message_count: int,
         as_of: datetime,
         limit: int,
     ) -> MemoryPack:
@@ -151,10 +165,12 @@ class HybridMemoryRetriever:
             raise ValueError("retrieval limit exceeds the configured maximum")
 
         query_embedding = None
+        embedding_error = None
         if self._embedding_provider is not None and query_text:
             try:
                 query_embedding = self._embedding_provider.embed(text=query_text)
-            except EmbeddingProviderError:
+            except EmbeddingProviderError as error:
+                embedding_error = f"{type(error).__name__}: {error}"
                 query_embedding = None
             if (
                 query_embedding is not None
@@ -202,6 +218,26 @@ class HybridMemoryRetriever:
             user_id=user_id,
             session_id=session_id,
             memories=memories,
+            diagnostics=RetrievalQueryDiagnostics(
+                search_text=query_text,
+                message_count=query_message_count,
+                result_limit=limit,
+                source_candidate_limit=search_query.candidate_limit,
+                returned_count=len(memories),
+                dense_enabled=(
+                    query_embedding is not None
+                    and self._settings.dense_weight > 0
+                ),
+                lexical_enabled=(
+                    bool(query_text) and self._settings.lexical_weight > 0
+                ),
+                embedding_model=(
+                    query_embedding.model
+                    if query_embedding is not None
+                    else None
+                ),
+                embedding_error=embedding_error,
+            ),
         )
 
     def execute(
@@ -216,13 +252,15 @@ class HybridMemoryRetriever:
             history=session_history,
             messages=(message,),
         )
+        bounded_query = _bounded_query(
+            message_pack=retrieval_messages,
+            settings=self._settings,
+        )
         return self._retrieve(
             user_id=retrieval_messages.user_id,
             session_id=retrieval_messages.session_id,
-            query_text=_bounded_query_text(
-                message_pack=retrieval_messages,
-                settings=self._settings,
-            ),
+            query_text=bounded_query.text,
+            query_message_count=bounded_query.message_count,
             as_of=message.created_at,
             limit=limit,
         )

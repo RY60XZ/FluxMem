@@ -45,6 +45,16 @@ The default `--context-mode memory` answers from retrieved FluxMem memories
 without raw transcript history. Full-context mode answers from transcript
 history without retrieval, extraction, or lifecycle calls.
 
+For memory-mode questions, the harness searches only the benchmark question,
+not the preceding source conversation. It retrieves 50 memories and asks the
+configured reranker to reorder all 50 before answer generation through
+OpenRouter's native rerank endpoint. The reranker defaults to
+`voyageai/rerank-2.5` and can be overridden with `FLUXMEM_RERANKER_MODEL`.
+
+Each question artifact records the exact search text, source candidate bound,
+dense and lexical ranks and scores, fusion and lifecycle components, reranker
+status and usage, and both the initial and final candidate ordering.
+
 The harness atomically updates `checkpoint.json` after every completed source
 turn and scored question. If the process is interrupted, repeat the same
 selection, dataset, model configuration, and output directory with `--resume`:
