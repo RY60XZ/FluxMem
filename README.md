@@ -1,22 +1,26 @@
 # FluxMem
 
-FluxMem is an independent conversational memory layer. It stores messages,
-extracts memories, retrieves relevant context, and records memory usage. It does
-not generate answers or cache answering-model responses.
+FluxMem is a provider-neutral conversational memory layer backed by PostgreSQL.
+It compresses messages into attributable memories, tracks temporal and lifecycle
+metadata, retrieves context with hybrid dense and lexical search, and records
+which memories were used.
 
-## Install
+## How it works
+
+1. Ingest messages and extract directly supported, compressed facts.
+2. Store source attribution, temporal bounds, embeddings, and lifecycle scores.
+3. Retrieve with dense and lexical search, reciprocal-rank fusion, and lifecycle
+   weighting.
+4. Optionally rerank candidates and generate answers through the separate
+   `infrastructure` package.
+
+## Quick start
 
 ```bash
 python -m venv .venv
 .venv/bin/pip install -e .
 make db-setup
 ```
-
-## Public API
-
-Applications provide memory extraction, lifecycle, and embedding implementations
-through provider-neutral ports. The `FluxMem` facade is the supported integration
-boundary:
 
 ```python
 from fluxmem import bootstrap
@@ -46,22 +50,21 @@ memory.record_usage(
 memory.close()
 ```
 
-The facade also exposes `store_messages(...)` for persistence without memory
-learning, `get_session_history(...)`, and `reindex_pending_memories(...)`.
+## LoCoMo evaluation
 
-## Optional infrastructure
+The optional [`infrastructure`](infrastructure) package provides OpenRouter
+adapters and a resumable LoCoMo harness. In memory mode it learns the source
+conversation, searches using only each benchmark question, retrieves 50
+candidates, and reranks all 50 with `voyageai/rerank-2.5`. 
 
-The separate [`infrastructure`](infrastructure) project demonstrates how an
-answering agent, concrete OpenRouter providers, environment configuration, and
-the LoCoMo harness can consume FluxMem without entering the core package.
+LoCoMo result from `conv-30` on the pinned official dataset
+(categories 1-4), recorded on 2026-08-27 with
+`google/gemma-4-26b-a4b-it` for extraction, lifecycle, answering, and judging;
+`text-embedding-3-small`; and `voyageai/rerank-2.5`:
 
-```bash
-.venv/bin/pip install -e ./infrastructure
-cp .env.example .env
-fluxmem-locomo run --all --output benchmark-runs/full
-fluxmem-locomo run --conversation conv-26 --output benchmark-runs/conv-26
-```
-
-The infrastructure runtime defaults its answering, judging, extraction,
-and lifecycle tasks to the paid
-`google/gemma-4-26b-a4b-it` OpenRouter route.
+| Category | Correct | Accuracy |
+|---|---:|---:|
+| Overall | 73/81 | 90.12% |
+| Single-hop | 38/44 | 86.36% |
+| Temporal | 25/26 | 96.15% |
+| Multi-hop | 10/11 | 90.91% |
